@@ -1,0 +1,64 @@
+name: Build and Release APK
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Reconstruct Debug Keystore
+        run: |
+          if [ -f "debug.keystore.base64" ]; then
+            echo "Reconstructing debug.keystore from base64 string..."
+            base64 -d debug.keystore.base64 > debug.keystore
+          else
+            echo "Warning: debug.keystore.base64 was not found!"
+          fi
+
+      - name: Make Gradlew Executable
+        run: chmod +x gradlew
+
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Publish/Update Latest GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Updating latest GitHub Release..."
+          
+          # Force create/update release with tag 'latest' and upload apk with clobber
+          gh release create latest \
+            --title "Latest Developer Build" \
+            --notes "Automated developer build of the latest commit. Download this APK to install or update the app on your device." \
+            --target "$GITHUB_SHA" \
+            app/build/outputs/apk/debug/app-debug.apk \
+            --clobber || {
+              echo "Release already exists or failed to create via direct 'gh release create'. Trying to upload file to existing release..."
+              gh release upload latest app/build/outputs/apk/debug/app-debug.apk --clobber
+            }

@@ -1,0 +1,6 @@
+{
+  "name": "Bank Solution",
+  "description": "TOUFIQ'S SMART BANKING SYSTEM - Premium Operations Assistant for Bank Officers with Local Database, Automated Reports, ATM Replenishment, and AI Assistant.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

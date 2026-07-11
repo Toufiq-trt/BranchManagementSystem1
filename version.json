@@ -1,0 +1,6 @@
+{
+  "versionCode": 1,
+  "versionName": "1.0",
+  "apkUrl": "https://github.com/Toufiq-Dev/smartbanking/releases/download/latest/smartbanking-latest.apk",
+  "releaseNotes": "Initial stable release of Toufiq's Smart Banking Management System with advanced registers, ATM replenishments, and automatic cloud backups."
+}
