@@ -59,13 +59,7 @@ fun FormsScreen(
 
     // Upload / Selection states
     var targetFormTypeForUpload by remember { mutableStateOf<String?>(null) }
-    var targetExistingFormForUpload by remember { mutableStateOf<com.example.data.DigitalForm?>(null) }
-
-    // Metadata entry states
-    var showDetailsDialog by remember { mutableStateOf(false) }
-    var inputCustomerName by remember { mutableStateOf("") }
-    var inputAccountNumber by remember { mutableStateOf("") }
-    var inputRemarks by remember { mutableStateOf("") }
+    var refreshTrigger by remember { mutableStateOf(0) }
 
     // Upload animation states
     var uploadingFormName by remember { mutableStateOf<String?>(null) }
@@ -99,76 +93,34 @@ fun FormsScreen(
             if (size > maxBytes) {
                 Toast.makeText(context, "Upload failed! File exceeds the 100 MB maximum size limit.", Toast.LENGTH_LONG).show()
                 targetFormTypeForUpload = null
-                targetExistingFormForUpload = null
                 return@rememberLauncherForActivityResult
             }
 
             val templateFormType = targetFormTypeForUpload
-            val existingForm = targetExistingFormForUpload
 
             if (templateFormType != null) {
-                // Scenario 1: New Form Upload
                 startUploadAnimation(templateFormType)
-                viewModel.addForm(
-                    formType = templateFormType,
-                    customerName = if (inputCustomerName.isNotBlank()) inputCustomerName else "Desk Customer",
-                    accountNumber = if (inputAccountNumber.isNotBlank()) inputAccountNumber else "N/A",
-                    remarks = if (inputRemarks.isNotBlank()) inputRemarks else "Uploaded standard template copy",
-                    signature = "UPLOADED_PDF",
-                    fieldsJson = "{}"
-                ) { newId ->
-                    coroutineScope.launch {
-                        val destDir = File(context.filesDir, "digital_forms_pdf")
-                        if (!destDir.exists()) destDir.mkdirs()
-                        val destFile = File(destDir, "form_${newId}.pdf")
-
-                        val success = copyUriToFile(context, uri, destFile)
-                        if (success) {
-                            // Fetch all forms and update newly created form pdf path
-                            val updatedForm = com.example.data.DigitalForm(
-                                id = newId.toInt(),
-                                formType = templateFormType,
-                                customerName = if (inputCustomerName.isNotBlank()) inputCustomerName else "Desk Customer",
-                                accountNumber = if (inputAccountNumber.isNotBlank()) inputAccountNumber else "N/A",
-                                dateStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date()),
-                                remarks = if (inputRemarks.isNotBlank()) inputRemarks else "Uploaded standard template copy",
-                                signaturePath = "UPLOADED_PDF",
-                                jsonFields = "{}",
-                                pdfFilePath = destFile.absolutePath
-                            )
-                            viewModel.updateForm(updatedForm)
-                            Toast.makeText(context, "Successfully uploaded $templateFormType!", Toast.LENGTH_SHORT).show()
-                        } else {
-                            Toast.makeText(context, "Failed to copy uploaded PDF file.", Toast.LENGTH_SHORT).show()
-                        }
-                        targetFormTypeForUpload = null
-                        inputCustomerName = ""
-                        inputAccountNumber = ""
-                        inputRemarks = ""
-                    }
-                }
-            } else if (existingForm != null) {
-                // Scenario 2: Replace PDF file of existing vault entry
-                startUploadAnimation(existingForm.formType)
                 coroutineScope.launch {
                     val destDir = File(context.filesDir, "digital_forms_pdf")
                     if (!destDir.exists()) destDir.mkdirs()
-                    val destFile = File(destDir, "form_${existingForm.id}.pdf")
+                    
+                    val safeFormName = templateFormType.replace(" ", "_").lowercase()
+                    val destFile = File(destDir, "uploaded_${safeFormName}.pdf")
 
                     val success = copyUriToFile(context, uri, destFile)
                     if (success) {
-                        viewModel.updateForm(existingForm.copy(pdfFilePath = destFile.absolutePath))
-                        Toast.makeText(context, "Successfully replaced PDF file for ${existingForm.formType}!", Toast.LENGTH_SHORT).show()
+                        destFile.setReadable(true, false)
+                        refreshTrigger++
+                        Toast.makeText(context, "Upload successful!", Toast.LENGTH_SHORT).show()
                     } else {
-                        Toast.makeText(context, "Failed to copy replacing PDF file.", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Failed to copy uploaded PDF file.", Toast.LENGTH_SHORT).show()
                     }
-                    targetExistingFormForUpload = null
+                    targetFormTypeForUpload = null
                 }
             }
         } else {
             // Cancelled
             targetFormTypeForUpload = null
-            targetExistingFormForUpload = null
         }
     }
 
@@ -201,32 +153,27 @@ fun FormsScreen(
         showPreviewDialog = true
     }
 
-    fun triggerArchivedPreview(form: com.example.data.DigitalForm) {
-        // If a PDF is uploaded, download/share that exact PDF file!
-        val path = form.pdfFilePath
-        if (!path.isNullOrEmpty()) {
-            val file = File(path)
-            if (file.exists()) {
-                try {
-                    val authority = "${context.packageName}.fileprovider"
-                    val fileUri = androidx.core.content.FileProvider.getUriForFile(context, authority, file)
-                    val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                        type = "application/pdf"
-                        putExtra(android.content.Intent.EXTRA_STREAM, fileUri)
-                        addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    }
-                    context.startActivity(android.content.Intent.createChooser(shareIntent, "Download / Share Form PDF"))
-                } catch (e: Exception) {
-                    Toast.makeText(context, "Error downloading PDF: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+    fun triggerUploadedFormDownload(formName: String) {
+        val safeFormName = formName.replace(" ", "_").lowercase()
+        val file = File(File(context.filesDir, "digital_forms_pdf"), "uploaded_${safeFormName}.pdf")
+        if (file.exists()) {
+            try {
+                val authority = "${context.packageName}.fileprovider"
+                val fileUri = androidx.core.content.FileProvider.getUriForFile(context, authority, file)
+                val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                    type = "application/pdf"
+                    putExtra(android.content.Intent.EXTRA_STREAM, fileUri)
+                    addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 }
-            } else {
-                Toast.makeText(context, "PDF file missing on local storage.", Toast.LENGTH_SHORT).show()
+                context.startActivity(android.content.Intent.createChooser(shareIntent, "Download / Share Form PDF"))
+            } catch (e: Exception) {
+                Toast.makeText(context, "Error sharing PDF: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
             }
-            return
+        } else {
+            // No custom copy uploaded yet. Fallback to blank template preview
+            Toast.makeText(context, "No custom copy uploaded yet. Downloading blank template...", Toast.LENGTH_SHORT).show()
+            triggerBlankPreview(formName)
         }
-
-        // Fallback or if empty - "if nothing uploaded then nothing will download"
-        Toast.makeText(context, "No custom PDF file uploaded for this form yet.", Toast.LENGTH_SHORT).show()
     }
 
     Column(
@@ -273,7 +220,7 @@ fun FormsScreen(
                             )
                         }
                         Spacer(modifier = Modifier.height(16.dp))
-                        Text("ARCHIVED SECURELY!", color = GoldPrimary, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        Text("UPLOAD SUCCESSFUL!", color = GoldPrimary, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                     } else {
                         CircularProgressIndicator(
                             progress = uploadProgress,
@@ -282,7 +229,7 @@ fun FormsScreen(
                             modifier = Modifier.size(60.dp)
                         )
                         Spacer(modifier = Modifier.height(16.dp))
-                        Text("Uploading '$uploadingFormName' to Secure Vault...", color = Color.White, fontSize = 13.sp)
+                        Text("Uploading '$uploadingFormName' securely...", color = Color.White, fontSize = 13.sp)
                         Text("${(uploadProgress * 100).toInt()}% Secure Transmission", color = Color.Gray, fontSize = 11.sp)
                     }
                 }
@@ -304,6 +251,11 @@ fun FormsScreen(
                 }
 
                 items(formTypes) { formName ->
+                    val safeFormName = formName.replace(" ", "_").lowercase()
+                    val fileExists = remember(formName, refreshTrigger) {
+                        File(File(context.filesDir, "digital_forms_pdf"), "uploaded_${safeFormName}.pdf").exists()
+                    }
+
                     Card(
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                         modifier = Modifier.fillMaxWidth()
@@ -322,13 +274,17 @@ fun FormsScreen(
                                 Icon(
                                     imageVector = Icons.Default.PictureAsPdf,
                                     contentDescription = null,
-                                    tint = RedAccent,
+                                    tint = if (fileExists) GreenAccent else RedAccent,
                                     modifier = Modifier.size(24.dp)
                                 )
                                 Spacer(modifier = Modifier.width(10.dp))
                                 Column {
                                     Text(formName, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.White)
-                                    Text("Official Blank Template", fontSize = 11.sp, color = Color.LightGray)
+                                    Text(
+                                        text = if (fileExists) "Custom Uploaded Copy Available" else "Official Blank Template",
+                                        fontSize = 11.sp,
+                                        color = if (fileExists) GreenAccent else Color.LightGray
+                                    )
                                 }
                             }
 
@@ -336,25 +292,22 @@ fun FormsScreen(
                                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                // Download Blank Template
+                                // Left side: Download button (Clicking this downloads the uploaded form, or falls back to blank)
                                 IconButton(
-                                    onClick = { triggerBlankPreview(formName) },
+                                    onClick = { triggerUploadedFormDownload(formName) },
                                     colors = IconButtonDefaults.iconButtonColors(contentColor = GoldPrimary)
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Download,
-                                        contentDescription = "Preview & Download Blank Form"
+                                        contentDescription = "Download Form"
                                     )
                                 }
 
-                                // Upload completed copy
+                                // Right side: Upload button (Clicking this directly triggers file picker)
                                 IconButton(
                                     onClick = {
                                         targetFormTypeForUpload = formName
-                                        inputCustomerName = ""
-                                        inputAccountNumber = ""
-                                        inputRemarks = ""
-                                        showDetailsDialog = true
+                                        pdfLauncher.launch("application/pdf")
                                     },
                                     colors = IconButtonDefaults.iconButtonColors(contentColor = GreenAccent)
                                 ) {
@@ -362,116 +315,6 @@ fun FormsScreen(
                                         imageVector = Icons.Default.CloudUpload,
                                         contentDescription = "Upload Completed Copy"
                                     )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                item {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = "STORED SECURE VAULT ARCHIVES (${forms.size})",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = GoldLight,
-                        modifier = Modifier.padding(bottom = 4.dp)
-                    )
-                }
-
-                if (forms.isEmpty()) {
-                    item {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(100.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                "No secure archived forms available.",
-                                color = Color.Gray,
-                                fontSize = 12.sp
-                            )
-                        }
-                    }
-                } else {
-                    items(forms) { form ->
-                        val hasPdf = !form.pdfFilePath.isNullOrEmpty()
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = SlateDark),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(12.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(form.formType, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color.White)
-                                    Text("Customer: ${form.customerName} | A/C: ${form.accountNumber}", fontSize = 11.sp, color = Color.LightGray)
-                                    Text("Date: ${form.dateStr}", fontSize = 10.sp, color = GoldLight)
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                        modifier = Modifier.padding(top = 4.dp)
-                                    ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(6.dp)
-                                                .background(if (hasPdf) GreenAccent else RedAccent, shape = androidx.compose.foundation.shape.CircleShape)
-                                        )
-                                        Text(
-                                            text = if (hasPdf) "PDF ATTACHED" else "NO PDF UPLOADED",
-                                            fontSize = 9.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = if (hasPdf) GreenAccent else RedAccent
-                                        )
-                                    }
-                                }
-
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    // Download PDF button (if nothing uploaded, it won't do anything but Toast)
-                                    IconButton(
-                                        onClick = { triggerArchivedPreview(form) },
-                                        colors = IconButtonDefaults.iconButtonColors(
-                                            contentColor = if (hasPdf) GoldPrimary else Color.Gray.copy(alpha = 0.5f)
-                                        )
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Download,
-                                            contentDescription = "Download Form PDF"
-                                        )
-                                    }
-
-                                    // Upload / Replace PDF Button
-                                    IconButton(
-                                        onClick = {
-                                            targetExistingFormForUpload = form
-                                            pdfLauncher.launch("application/pdf")
-                                        },
-                                        colors = IconButtonDefaults.iconButtonColors(contentColor = GreenAccent)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.CloudUpload,
-                                            contentDescription = "Upload / Replace PDF"
-                                        )
-                                    }
-
-                                    // Delete Button
-                                    IconButton(
-                                        onClick = { viewModel.deleteForm(form) },
-                                        colors = IconButtonDefaults.iconButtonColors(contentColor = RedAccent)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Delete,
-                                            contentDescription = "Delete from Archive"
-                                        )
-                                    }
                                 }
                             }
                         }
@@ -487,86 +330,6 @@ fun FormsScreen(
             textContent = previewTextContent,
             onDismiss = { showPreviewDialog = false },
             onDownload = { onConfirmDownload() }
-        )
-    }
-
-    // Detail dialog before starting PDF selection for new templates
-    if (showDetailsDialog) {
-        AlertDialog(
-            onDismissRequest = { showDetailsDialog = false },
-            title = { Text("Archiving Metadata", fontWeight = FontWeight.Bold, color = GoldPrimary) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Fill out the reference details before choosing the completed PDF file.", fontSize = 12.sp, color = Color.LightGray)
-                    
-                    OutlinedTextField(
-                        value = inputCustomerName,
-                        onValueChange = { inputCustomerName = it },
-                        label = { Text("Customer Name") },
-                        placeholder = { Text("e.g. Abdul Rahman") },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = GoldPrimary,
-                            unfocusedBorderColor = Color.Gray,
-                            focusedLabelColor = GoldPrimary,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    OutlinedTextField(
-                        value = inputAccountNumber,
-                        onValueChange = { inputAccountNumber = it },
-                        label = { Text("Account Number") },
-                        placeholder = { Text("e.g. 1029481726") },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = GoldPrimary,
-                            unfocusedBorderColor = Color.Gray,
-                            focusedLabelColor = GoldPrimary,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    OutlinedTextField(
-                        value = inputRemarks,
-                        onValueChange = { inputRemarks = it },
-                        label = { Text("Remarks") },
-                        placeholder = { Text("e.g. Completed service execution") },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = GoldPrimary,
-                            unfocusedBorderColor = Color.Gray,
-                            focusedLabelColor = GoldPrimary,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (inputCustomerName.isBlank()) {
-                            Toast.makeText(context, "Please enter a Customer Name.", Toast.LENGTH_SHORT).show()
-                            return@Button
-                        }
-                        showDetailsDialog = false
-                        pdfLauncher.launch("application/pdf")
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary, contentColor = SlateDark)
-                ) {
-                    Icon(Icons.Default.PictureAsPdf, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Choose PDF", fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDetailsDialog = false }) {
-                    Text("Cancel", color = Color.White)
-                }
-            }
         )
     }
 }
