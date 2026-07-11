@@ -60,6 +60,9 @@ object UpdateHelper {
     suspend fun downloadApk(
         context: Context,
         apkUrl: String,
+        owner: String,
+        repo: String,
+        branch: String,
         onProgress: (progress: Float, downloadedBytes: Long, totalBytes: Long) -> Unit
     ): File {
         return withContext(Dispatchers.IO) {
@@ -68,34 +71,58 @@ object UpdateHelper {
                 destinationFile.delete()
             }
 
-            val request = Request.Builder()
-                .url(apkUrl)
-                .header("User-Agent", "Mozilla/5.0 (Linux; Android 10; Mobile)")
-                .build()
-
-            client.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) {
-                    throw IOException("HTTP error code: ${response.code} (${response.message})")
-                }
-                val body = response.body ?: throw IOException("Empty response body from server")
-                val contentLength = body.contentLength()
-                
-                body.byteStream().use { input ->
-                    FileOutputStream(destinationFile).use { output ->
-                        val buffer = ByteArray(8192)
-                        var bytesRead: Int
-                        var totalBytesRead = 0L
-                        
-                        while (input.read(buffer).also { bytesRead = it } != -1) {
-                            output.write(buffer, 0, bytesRead)
-                            totalBytesRead += bytesRead
-                            val progress = if (contentLength > 0) totalBytesRead.toFloat() / contentLength else 0.0f
-                            onProgress(progress, totalBytesRead, contentLength)
-                        }
-                    }
-                }
-                return@withContext destinationFile
+            val urls = mutableListOf<String>()
+            val isSameRepo = apkUrl.contains("/$owner/$repo/", ignoreCase = true)
+            
+            if (isSameRepo) {
+                urls.add(apkUrl)
             }
+            
+            // Add custom repository's compiled APK first if the main URL belongs to a different repository
+            urls.add("https://raw.githubusercontent.com/$owner/$repo/$branch/ToufiqBranch.apk")
+            urls.add("https://raw.githubusercontent.com/$owner/$repo/$branch/app/build/outputs/apk/debug/app-debug.apk")
+            
+            if (!isSameRepo) {
+                urls.add(apkUrl)
+            }
+
+            var lastException: Exception? = null
+            for (url in urls) {
+                try {
+                    val request = Request.Builder()
+                        .url(url)
+                        .header("User-Agent", "Mozilla/5.0 (Linux; Android 10; Mobile)")
+                        .build()
+
+                    client.newCall(request).execute().use { response ->
+                        if (!response.isSuccessful) {
+                            throw IOException("HTTP error code: ${response.code} (${response.message})")
+                        }
+                        val body = response.body ?: throw IOException("Empty response body from server")
+                        val contentLength = body.contentLength()
+                        
+                        body.byteStream().use { input ->
+                            FileOutputStream(destinationFile).use { output ->
+                                val buffer = ByteArray(8192)
+                                var bytesRead: Int
+                                var totalBytesRead = 0L
+                                
+                                while (input.read(buffer).also { bytesRead = it } != -1) {
+                                    output.write(buffer, 0, bytesRead)
+                                    totalBytesRead += bytesRead
+                                    val progress = if (contentLength > 0) totalBytesRead.toFloat() / contentLength else 0.0f
+                                    onProgress(progress, totalBytesRead, contentLength)
+                                }
+                            }
+                        }
+                        return@withContext destinationFile
+                    }
+                } catch (e: Exception) {
+                    lastException = e
+                    // Continue to next URL candidate
+                }
+            }
+            throw lastException ?: IOException("Failed to download APK from any of the candidate URLs")
         }
     }
 

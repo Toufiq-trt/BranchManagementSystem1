@@ -864,7 +864,7 @@ class BankingViewModel(application: Application) : AndroidViewModel(application)
         downloadStatusText = "Downloading update..."
         viewModelScope.launch {
             try {
-                val file = com.example.util.UpdateHelper.downloadApk(context, update.apkUrl) { progress, downloaded, total ->
+                val file = com.example.util.UpdateHelper.downloadApk(context, update.apkUrl, githubOwner, githubRepo, githubBranch) { progress, downloaded, total ->
                     downloadProgress = progress
                     if (total > 0) {
                         val downloadedMb = downloaded.toFloat() / (1024 * 1024)
