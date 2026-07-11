@@ -66,12 +66,13 @@ object UpdateHelper {
         onProgress: (progress: Float, downloadedBytes: Long, totalBytes: Long) -> Unit
     ): File {
         return withContext(Dispatchers.IO) {
-            val destinationFile = File(context.cacheDir, "smartbanking-update.apk")
+            val storageDir = context.externalCacheDir ?: context.cacheDir
+            val destinationFile = File(storageDir, "smartbanking-update.apk")
             if (destinationFile.exists()) {
                 destinationFile.delete()
             }
 
-            val urls = mutableListOf<String>()
+            val urls = linkedSetOf<String>()
             val isSameRepo = apkUrl.contains("/$owner/$repo/", ignoreCase = true)
             
             if (isSameRepo) {
@@ -115,6 +116,16 @@ object UpdateHelper {
                                 }
                             }
                         }
+
+                        // Set read permissions for external processes (such as Package Installer)
+                        destinationFile.setReadable(true, false)
+
+                        // Verify that the downloaded APK is completely intact and a valid package
+                        val archiveInfo = context.packageManager.getPackageArchiveInfo(destinationFile.absolutePath, 0)
+                        if (archiveInfo == null) {
+                            throw IOException("Downloaded file from $url is not a valid Android package (parsing failed)")
+                        }
+
                         return@withContext destinationFile
                     }
                 } catch (e: Exception) {

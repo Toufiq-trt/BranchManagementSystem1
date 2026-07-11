@@ -46,8 +46,8 @@ class BankingViewModel(application: Application) : AndroidViewModel(application)
     var isLoggedIn by mutableStateOf(true) // Default to true (Single user mode)
     
     // GitHub Update Settings (Persisted in SharedPreferences)
-    var githubOwner by mutableStateOf("Toufiq-Dev")
-    var githubRepo by mutableStateOf("smartbanking")
+    var githubOwner by mutableStateOf("Toufiq-trt")
+    var githubRepo by mutableStateOf("BranchManagementSystem1")
     var githubBranch by mutableStateOf("main")
     
     // In-App Update States
@@ -106,9 +106,24 @@ class BankingViewModel(application: Application) : AndroidViewModel(application)
         isDarkMode = sharedPrefs.getBoolean("dark_theme", true)
         isPasscodeEnabled = sharedPrefs.getBoolean("passcode_enabled", false)
         passcodeLock = sharedPrefs.getString("passcode_lock", "") ?: ""
-        githubOwner = sharedPrefs.getString("github_owner", "Toufiq-Dev") ?: "Toufiq-Dev"
-        githubRepo = sharedPrefs.getString("github_repo", "smartbanking") ?: "smartbanking"
-        githubBranch = sharedPrefs.getString("github_branch", "main") ?: "main"
+        
+        var owner = sharedPrefs.getString("github_owner", "Toufiq-trt") ?: "Toufiq-trt"
+        var repo = sharedPrefs.getString("github_repo", "BranchManagementSystem1") ?: "BranchManagementSystem1"
+        var branch = sharedPrefs.getString("github_branch", "main") ?: "main"
+
+        // Auto-upgrade from legacy repository if found
+        if (owner == "Toufiq-Dev" && repo == "smartbanking") {
+            owner = "Toufiq-trt"
+            repo = "BranchManagementSystem1"
+            sharedPrefs.edit()
+                .putString("github_owner", owner)
+                .putString("github_repo", repo)
+                .apply()
+        }
+
+        githubOwner = owner
+        githubRepo = repo
+        githubBranch = branch
 
         val database = AppDatabase.getDatabase(application)
         repository = BankingRepository(database.bankingDao())
