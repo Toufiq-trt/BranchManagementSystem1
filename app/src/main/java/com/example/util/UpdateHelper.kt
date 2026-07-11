@@ -60,8 +60,8 @@ object UpdateHelper {
     suspend fun downloadApk(
         context: Context,
         apkUrl: String,
-        onProgress: (Float) -> Unit
-    ): File? {
+        onProgress: (progress: Float, downloadedBytes: Long, totalBytes: Long) -> Unit
+    ): File {
         return withContext(Dispatchers.IO) {
             val destinationFile = File(context.cacheDir, "smartbanking-update.apk")
             if (destinationFile.exists()) {
@@ -70,35 +70,31 @@ object UpdateHelper {
 
             val request = Request.Builder()
                 .url(apkUrl)
+                .header("User-Agent", "Mozilla/5.0 (Linux; Android 10; Mobile)")
                 .build()
 
-            try {
-                client.newCall(request).execute().use { response ->
-                    if (!response.isSuccessful) return@withContext null
-                    val body = response.body ?: return@withContext null
-                    val contentLength = body.contentLength()
-                    
-                    body.byteStream().use { input ->
-                        FileOutputStream(destinationFile).use { output ->
-                            val buffer = ByteArray(4096)
-                            var bytesRead: Int
-                            var totalBytesRead = 0L
-                            
-                            while (input.read(buffer).also { bytesRead = it } != -1) {
-                                output.write(buffer, 0, bytesRead)
-                                totalBytesRead += bytesRead
-                                if (contentLength > 0) {
-                                    val progress = totalBytesRead.toFloat() / contentLength
-                                    onProgress(progress)
-                                }
-                            }
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    throw IOException("HTTP error code: ${response.code} (${response.message})")
+                }
+                val body = response.body ?: throw IOException("Empty response body from server")
+                val contentLength = body.contentLength()
+                
+                body.byteStream().use { input ->
+                    FileOutputStream(destinationFile).use { output ->
+                        val buffer = ByteArray(8192)
+                        var bytesRead: Int
+                        var totalBytesRead = 0L
+                        
+                        while (input.read(buffer).also { bytesRead = it } != -1) {
+                            output.write(buffer, 0, bytesRead)
+                            totalBytesRead += bytesRead
+                            val progress = if (contentLength > 0) totalBytesRead.toFloat() / contentLength else 0.0f
+                            onProgress(progress, totalBytesRead, contentLength)
                         }
                     }
-                    return@withContext destinationFile
                 }
-            } catch (e: Exception) {
-                e.printStackTrace()
-                return@withContext null
+                return@withContext destinationFile
             }
         }
     }

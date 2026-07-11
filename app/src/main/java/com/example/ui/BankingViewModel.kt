@@ -863,11 +863,18 @@ class BankingViewModel(application: Application) : AndroidViewModel(application)
         downloadProgress = 0.0f
         downloadStatusText = "Downloading update..."
         viewModelScope.launch {
-            val file = com.example.util.UpdateHelper.downloadApk(context, update.apkUrl) { progress ->
-                downloadProgress = progress
-                downloadStatusText = "Downloading: ${(progress * 100).toInt()}%"
-            }
-            if (file != null) {
+            try {
+                val file = com.example.util.UpdateHelper.downloadApk(context, update.apkUrl) { progress, downloaded, total ->
+                    downloadProgress = progress
+                    if (total > 0) {
+                        val downloadedMb = downloaded.toFloat() / (1024 * 1024)
+                        val totalMb = total.toFloat() / (1024 * 1024)
+                        downloadStatusText = "Downloading: ${(progress * 100).toInt()}% (%.2f MB / %.2f MB)".format(downloadedMb, totalMb)
+                    } else {
+                        val downloadedMb = downloaded.toFloat() / (1024 * 1024)
+                        downloadStatusText = "Downloading: %.2f MB (estimating size...)".format(downloadedMb)
+                    }
+                }
                 downloadStatusText = "Installing update..."
                 val launched = com.example.util.UpdateHelper.installApk(context, file)
                 if (launched) {
@@ -877,9 +884,10 @@ class BankingViewModel(application: Application) : AndroidViewModel(application)
                     downloadStatusText = "Requires install permission. Grant permission and try again."
                     downloadProgress = null
                 }
-            } else {
-                downloadStatusText = "Download failed."
+            } catch (e: Exception) {
+                downloadStatusText = "Download failed: ${e.localizedMessage ?: "Unknown error"}"
                 downloadProgress = null
+                e.printStackTrace()
             }
         }
     }
