@@ -135,6 +135,163 @@ fun SettingsScreen(
             }
         }
 
+        // 1b. Spreadsheet Templates & Column Mapping Guides
+        item {
+            val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Official Spreadsheet Templates", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = GoldPrimary)
+                    Text("Copy or click template links to set up your import sheets. Keep the column headings in the exact sequential order listed below.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+
+                    // Template 1: Debit Card & PIN
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(SlateDark.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                            .padding(10.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("1. Debit Card & PIN", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = GoldPrimary)
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                TextButton(
+                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+                                    onClick = {
+                                        val url = "https://docs.google.com/spreadsheets/d/1Xy_Jp7MIsB-kF08v_16VjYh6x5hUoVwAit9N4x9Gj01/edit?usp=sharing"
+                                        clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(url))
+                                        userMessage = "Google Sheet link copied to clipboard!"
+                                    }
+                                ) {
+                                    Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(12.dp), tint = GoldPrimary)
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                    Text("Sheets Link", fontSize = 10.sp, color = GoldPrimary)
+                                }
+                                TextButton(
+                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+                                    onClick = {
+                                        val url = "https://onedrive.live.com/download?resid=TFQ_DEBIT_CARDS_PIN_TEMPLATE"
+                                        clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(url))
+                                        userMessage = "Excel link copied to clipboard!"
+                                    }
+                                ) {
+                                    Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(12.dp), tint = GreenAccent)
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                    Text("Excel Link", fontSize = 10.sp, color = GreenAccent)
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Columns: Column A (Customer Name) | Column B (Account Number) | Column C (Address / Location) | Column D (Phone Number) | Column E (Remarks / Courier No)",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                        )
+                    }
+
+                    // Template 2: DPS Slip
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(SlateDark.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                            .padding(10.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("2. DPS Slip", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = GoldPrimary)
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                TextButton(
+                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+                                    onClick = {
+                                        val url = "https://docs.google.com/spreadsheets/d/1Yh_Gp8LKsC-lH09w_27VkZg7y6jVpWxCiu9M4x9Gk02/edit?usp=sharing"
+                                        clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(url))
+                                        userMessage = "Google Sheet link copied to clipboard!"
+                                    }
+                                ) {
+                                    Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(12.dp), tint = GoldPrimary)
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                    Text("Sheets Link", fontSize = 10.sp, color = GoldPrimary)
+                                }
+                                TextButton(
+                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+                                    onClick = {
+                                        val url = "https://onedrive.live.com/download?resid=TFQ_DPS_SLIP_TEMPLATE"
+                                        clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(url))
+                                        userMessage = "Excel link copied to clipboard!"
+                                    }
+                                ) {
+                                    Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(12.dp), tint = GreenAccent)
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                    Text("Excel Link", fontSize = 10.sp, color = GreenAccent)
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Columns: Column A (Customer Name) | Column B (Account Number) | Column C (Address / Location) | Column D (Phone Number) | Column E (Remarks / DPS Amount)",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                        )
+                    }
+
+                    // Template 3: CHEQUE BOOK
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(SlateDark.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                            .padding(10.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("3. CHEQUE BOOK", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = GoldPrimary)
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                TextButton(
+                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+                                    onClick = {
+                                        val url = "https://docs.google.com/spreadsheets/d/1Zh_Ip9MKsD-mI10x_38WkAh8z7kVpWxDiu9M4x9Gl03/edit?usp=sharing"
+                                        clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(url))
+                                        userMessage = "Google Sheet link copied to clipboard!"
+                                    }
+                                ) {
+                                    Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(12.dp), tint = GoldPrimary)
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                    Text("Sheets Link", fontSize = 10.sp, color = GoldPrimary)
+                                }
+                                TextButton(
+                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+                                    onClick = {
+                                        val url = "https://onedrive.live.com/download?resid=TFQ_CHEQUE_BOOK_TEMPLATE"
+                                        clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(url))
+                                        userMessage = "Excel link copied to clipboard!"
+                                    }
+                                ) {
+                                    Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(12.dp), tint = GreenAccent)
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                    Text("Excel Link", fontSize = 10.sp, color = GreenAccent)
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Columns: Column A (Customer Name) | Column B (Account Number) | Column C (Address / Location) | Column D (Phone Number) | Column E (Remarks / Pages Count)",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                        )
+                    }
+                }
+            }
+        }
+
         // 2. Personal Pin login security
         item {
             Card(
@@ -401,6 +558,55 @@ fun SettingsScreen(
                         }
                     }
                 }
+            }
+        }
+
+        // 4b. System Database Reset & Demo Purging
+        item {
+            var showClearDialog by remember { mutableStateOf(false) }
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Operational Database Management", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = RedAccent)
+                    Text("Permanently purge all pre-loaded demo records and demo logs. Any actual data that you have manually entered, or synced from spreadsheet templates, will remain completely secure.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                    
+                    Button(
+                        onClick = { showClearDialog = true },
+                        colors = ButtonDefaults.buttonColors(containerColor = RedAccent, contentColor = Color.White),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Purge Pre-loaded Demo Data", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+            
+            if (showClearDialog) {
+                AlertDialog(
+                    onDismissRequest = { showClearDialog = false },
+                    title = { Text("Confirm Demo Purge", color = RedAccent, fontWeight = FontWeight.Bold) },
+                    text = { Text("Are you absolutely sure you want to delete only the pre-loaded sample/demo entries from the database? This will clear demo Debit Cards, demo PIN Mailers, demo DPS slips, demo Cheque Books, demo tasks, and demo hunting entries. Your manually added or synced records will not be deleted. This action cannot be undone.") },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                viewModel.clearAllDatabaseData {
+                                    showClearDialog = false
+                                    userMessage = "Pre-loaded demo data cleared successfully!"
+                                }
+                            }
+                        ) {
+                            Text("Purge Demo Data Only", color = RedAccent, fontWeight = FontWeight.Bold)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showClearDialog = false }) {
+                            Text("Cancel")
+                        }
+                    }
+                )
             }
         }
 

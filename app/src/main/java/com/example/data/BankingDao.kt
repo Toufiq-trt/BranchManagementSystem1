@@ -134,4 +134,46 @@ interface BankingDao {
 
     @Query("DELETE FROM recycle_bin WHERE deletedTimestamp < :cutoff")
     suspend fun autoPurgeRecycleBin(cutoff: Long)
+
+    @Query("SELECT * FROM banking_items WHERE type = :type AND customerName = :name AND accountNumber = :accountNumber AND isDestroyed = 0 AND isDelivered = 0 LIMIT 1")
+    suspend fun checkDuplicateItem(type: String, name: String, accountNumber: String): BankingItem?
+
+    @Query("DELETE FROM banking_items WHERE isDemo = 1")
+    suspend fun clearDemoBankingItems()
+
+    @Query("DELETE FROM todo_tasks WHERE isDemo = 1")
+    suspend fun clearDemoTodoTasks()
+
+    @Query("DELETE FROM customer_hunting WHERE isDemo = 1")
+    suspend fun clearDemoCustomerHunting()
+
+    @Query("DELETE FROM quantity_logs WHERE isDemo = 1")
+    suspend fun clearDemoQuantityLogs()
+
+    @Query("DELETE FROM banking_items")
+    suspend fun clearBankingItems()
+
+    @Query("DELETE FROM todo_tasks")
+    suspend fun clearTodoTasks()
+
+    @Query("DELETE FROM customer_hunting")
+    suspend fun clearCustomerHunting()
+
+    @Query("DELETE FROM digital_forms")
+    suspend fun clearDigitalForms()
+
+    @Query("DELETE FROM quantity_logs")
+    suspend fun clearQuantityLogs()
+
+    @Query("DELETE FROM atm_loading_logs")
+    suspend fun clearAtmLoadingLogs()
+
+    @Query("DELETE FROM letters_issued")
+    suspend fun clearLettersIssued()
+
+    @Query("DELETE FROM recycle_bin")
+    suspend fun clearRecycleBin()
+
+    @Query("DELETE FROM password_history")
+    suspend fun clearPasswordHistory()
 }

@@ -18,7 +18,8 @@ class BankingRepository(private val bankingDao: BankingDao) {
         address: String,
         phoneNumber: String,
         receivedDateOverride: Long? = null,
-        remarks: String
+        remarks: String,
+        isDemo: Boolean = false
     ): Long {
         val received = receivedDateOverride ?: System.currentTimeMillis()
         val destroy = received + (90L * 24L * 60L * 60L * 1000L) // 90 days later
@@ -32,7 +33,8 @@ class BankingRepository(private val bankingDao: BankingDao) {
             destroyAfter = destroy,
             remarks = remarks,
             isDestroyed = false,
-            isBalanced = true // Automatically create active balancing entry
+            isBalanced = true, // Automatically create active balancing entry
+            isDemo = isDemo
         )
         val id = bankingDao.insertItem(item)
         val finalItem = item.copy(id = id.toInt())
@@ -57,7 +59,7 @@ class BankingRepository(private val bankingDao: BankingDao) {
         return bankingDao.getLatestQuantityLog(type)?.newQuantity ?: 0
     }
 
-    suspend fun updateQuantity(type: String, newQty: Int, editedBy: String): Long {
+    suspend fun updateQuantity(type: String, newQty: Int, editedBy: String, isDemo: Boolean = false): Long {
         val latestLog = bankingDao.getLatestQuantityLog(type)
         val prevQty = latestLog?.newQuantity ?: 0
         val now = Date()
@@ -71,7 +73,8 @@ class BankingRepository(private val bankingDao: BankingDao) {
             editedBy = editedBy,
             dateStr = dateStr,
             timeStr = timeStr,
-            timestamp = System.currentTimeMillis()
+            timestamp = System.currentTimeMillis(),
+            isDemo = isDemo
         )
         val id = bankingDao.insertQuantityLog(log)
         val finalLog = log.copy(id = id.toInt())
@@ -134,7 +137,8 @@ class BankingRepository(private val bankingDao: BankingDao) {
         accountNumber: String,
         remarks: String,
         signaturePath: String = "",
-        jsonFields: String = "{}"
+        jsonFields: String = "{}",
+        pdfFilePath: String? = null
     ): Long {
         val now = Date()
         val dateStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(now)
@@ -146,7 +150,8 @@ class BankingRepository(private val bankingDao: BankingDao) {
             remarks = remarks,
             signaturePath = signaturePath,
             jsonFields = jsonFields,
-            timestamp = System.currentTimeMillis()
+            timestamp = System.currentTimeMillis(),
+            pdfFilePath = pdfFilePath
         )
         val id = bankingDao.insertForm(form)
         val finalForm = form.copy(id = id.toInt())
@@ -167,13 +172,14 @@ class BankingRepository(private val bankingDao: BankingDao) {
     // --- Todo Tasks ---
     fun getAllTasks(): Flow<List<TodoTask>> = bankingDao.getAllTasks()
     
-    suspend fun insertTask(title: String, priority: String, dueDate: Long, dueTime: String): Long {
+    suspend fun insertTask(title: String, priority: String, dueDate: Long, dueTime: String, isDemo: Boolean = false): Long {
         val task = TodoTask(
             title = title,
             priority = priority,
             dueDate = dueDate,
             dueTime = dueTime,
-            isCompleted = false
+            isCompleted = false,
+            isDemo = isDemo
         )
         val id = bankingDao.insertTask(task)
         val finalTask = task.copy(id = id.toInt())
@@ -200,7 +206,8 @@ class BankingRepository(private val bankingDao: BankingDao) {
         address: String,
         interestedProduct: String,
         priority: String,
-        completionPercentage: Int
+        completionPercentage: Int,
+        isDemo: Boolean = false
     ): Long {
         val hunting = CustomerHunting(
             customerName = customerName,
@@ -209,7 +216,8 @@ class BankingRepository(private val bankingDao: BankingDao) {
             interestedProduct = interestedProduct,
             isGrabbed = completionPercentage >= 100,
             priority = priority,
-            completionPercentage = completionPercentage
+            completionPercentage = completionPercentage,
+            isDemo = isDemo
         )
         val id = bankingDao.insertHunting(hunting)
         val finalHunting = hunting.copy(id = id.toInt())
@@ -349,5 +357,28 @@ class BankingRepository(private val bankingDao: BankingDao) {
 
     suspend fun insertBankingItemDirectly(item: BankingItem): Long {
         return bankingDao.insertItem(item)
+    }
+
+    suspend fun checkDuplicateItem(type: String, name: String, accountNumber: String): Boolean {
+        return bankingDao.checkDuplicateItem(type, name, accountNumber) != null
+    }
+
+    suspend fun clearAllDemoData() {
+        bankingDao.clearDemoBankingItems()
+        bankingDao.clearDemoTodoTasks()
+        bankingDao.clearDemoCustomerHunting()
+        bankingDao.clearDemoQuantityLogs()
+    }
+
+    suspend fun clearAllData() {
+        bankingDao.clearBankingItems()
+        bankingDao.clearTodoTasks()
+        bankingDao.clearCustomerHunting()
+        bankingDao.clearDigitalForms()
+        bankingDao.clearQuantityLogs()
+        bankingDao.clearAtmLoadingLogs()
+        bankingDao.clearLettersIssued()
+        bankingDao.clearRecycleBin()
+        bankingDao.clearPasswordHistory()
     }
 }

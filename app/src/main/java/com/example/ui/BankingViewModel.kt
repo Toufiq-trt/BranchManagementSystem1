@@ -178,30 +178,30 @@ class BankingViewModel(application: Application) : AndroidViewModel(application)
         if (repository.getAllItems().first().isEmpty()) {
             val now = System.currentTimeMillis()
             // Seed a few pending/active items
-            repository.insertBankingItem("DEBIT_CARD", "Abdul Rahman", "1029481726", "Dhaka, Bangladesh", "01712345678", now - 5 * 24 * 3600 * 1000L, "Express processing requested")
-            repository.insertBankingItem("DEBIT_CARD", "Sumaiya Akter", "2048591827", "Sylhet", "01812345678", now - 25 * 24 * 3600 * 1000L, "Waiting for pickup")
-            repository.insertBankingItem("PIN", "Abdul Rahman", "1029481726", "Dhaka, Bangladesh", "01712345678", now - 3 * 24 * 3600 * 1000L, "PIN mailer received")
-            repository.insertBankingItem("CHEQUE_BOOK", "Kazi Toufiq", "5512349876", "Ranirbandar, Dinajpur", "01999887766", now - 10 * 24 * 3600 * 1000L, "100 pages book")
-            repository.insertBankingItem("DPS", "Nusrat Jahan", "3094817263", "Thakurgaon", "01512345678", now - 85 * 24 * 3600 * 1000L, "DPS card delivery") // Near expiry!
+            repository.insertBankingItem("DEBIT_CARD", "Abdul Rahman", "1029481726", "Dhaka, Bangladesh", "01712345678", now - 5 * 24 * 3600 * 1000L, "Express processing requested", isDemo = true)
+            repository.insertBankingItem("DEBIT_CARD", "Sumaiya Akter", "2048591827", "Sylhet", "01812345678", now - 25 * 24 * 3600 * 1000L, "Waiting for pickup", isDemo = true)
+            repository.insertBankingItem("PIN", "Abdul Rahman", "1029481726", "Dhaka, Bangladesh", "01712345678", now - 3 * 24 * 3600 * 1000L, "PIN mailer received", isDemo = true)
+            repository.insertBankingItem("CHEQUE_BOOK", "Kazi Toufiq", "5512349876", "Ranirbandar, Dinajpur", "01999887766", now - 10 * 24 * 3600 * 1000L, "100 pages book", isDemo = true)
+            repository.insertBankingItem("DPS", "Nusrat Jahan", "3094817263", "Thakurgaon", "01512345678", now - 85 * 24 * 3600 * 1000L, "DPS card delivery", isDemo = true) // Near expiry!
             
             // Seed expired item (past 90 days) to showcase automatic destruction transfer
-            repository.insertBankingItem("DEBIT_CARD", "Farhana Islam", "9081726354", "Panchagarh", "01312345678", now - 95 * 24 * 3600 * 1000L, "Customer failed to collect")
+            repository.insertBankingItem("DEBIT_CARD", "Farhana Islam", "9081726354", "Panchagarh", "01312345678", now - 95 * 24 * 3600 * 1000L, "Customer failed to collect", isDemo = true)
 
             // Seed Prize Bond / Pay Order initial quantities
-            repository.updateQuantity("PRIZE_BOND", 120, "System Admin")
-            repository.updateQuantity("PAY_ORDER", 45, "System Admin")
+            repository.updateQuantity("PRIZE_BOND", 120, "System Admin", isDemo = true)
+            repository.updateQuantity("PAY_ORDER", 45, "System Admin", isDemo = true)
             prizeBondQty.value = 120
             payOrderQty.value = 45
 
             // Seed some tasks
-            repository.insertTask("Balance physical debit card register", "HIGH", now, "11:00 AM")
-            repository.insertTask("Replenish ATM-25 Dinajpur main safe", "MEDIUM", now, "2:30 PM")
-            repository.insertTask("Verify Supplementary Card applications", "LOW", now + 24 * 3600 * 1000L, "4:00 PM")
+            repository.insertTask("Balance physical debit card register", "HIGH", now, "11:00 AM", isDemo = true)
+            repository.insertTask("Replenish ATM-25 Dinajpur main safe", "MEDIUM", now, "2:30 PM", isDemo = true)
+            repository.insertTask("Verify Supplementary Card applications", "LOW", now + 24 * 3600 * 1000L, "4:00 PM", isDemo = true)
 
             // Seed some hunting clients
-            repository.insertHunting("Dr. Rafiqul Islam", "01755443322", "Ranirbandar Health Complex", "BGB Loan Top-Up", "HIGH", 75)
-            repository.insertHunting("Tasnim Ara", "01899887766", "Thakurgaon Govt College", "Credit Card Premium", "MEDIUM", 40)
-            repository.insertHunting("Sajid Hasan", "01555667788", "Nilphamari Bypass", "High-Yield Fixed Deposit", "LOW", 10)
+            repository.insertHunting("Dr. Rafiqul Islam", "01755443322", "Ranirbandar Health Complex", "BGB Loan Top-Up", "HIGH", 75, isDemo = true)
+            repository.insertHunting("Tasnim Ara", "01899887766", "Thakurgaon Govt College", "Credit Card Premium", "MEDIUM", 40, isDemo = true)
+            repository.insertHunting("Sajid Hasan", "01555667788", "Nilphamari Bypass", "High-Yield Fixed Deposit", "LOW", 10, isDemo = true)
             
             sharedPrefs.edit().putBoolean("database_seeded", true).apply()
         } else {
@@ -211,9 +211,36 @@ class BankingViewModel(application: Application) : AndroidViewModel(application)
 
     // --- Actions ---
 
-    fun addBankingItem(type: String, name: String, acNo: String, address: String, phone: String, remarks: String, dateOverride: Long? = null) {
+    fun addBankingItem(
+        type: String,
+        name: String,
+        acNo: String,
+        address: String,
+        phone: String,
+        remarks: String,
+        dateOverride: Long? = null,
+        onDuplicate: (() -> Unit)? = null,
+        onSuccess: (() -> Unit)? = null
+    ) {
         viewModelScope.launch {
-            repository.insertBankingItem(type, name, acNo, address, phone, dateOverride, remarks)
+            val isDuplicate = repository.checkDuplicateItem(type, name, acNo)
+            if (isDuplicate) {
+                onDuplicate?.invoke()
+            } else {
+                repository.insertBankingItem(type, name, acNo, address, phone, dateOverride, remarks)
+                onSuccess?.invoke()
+            }
+        }
+    }
+
+    fun clearAllDatabaseData(onCompleted: () -> Unit) {
+        viewModelScope.launch {
+            repository.clearAllDemoData()
+            val pQty = repository.getLatestQuantity("PRIZE_BOND")
+            val poQty = repository.getLatestQuantity("PAY_ORDER")
+            prizeBondQty.value = pQty
+            payOrderQty.value = poQty
+            onCompleted()
         }
     }
 
@@ -266,9 +293,16 @@ class BankingViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun addForm(formType: String, customerName: String, accountNumber: String, remarks: String, signature: String, fieldsJson: String) {
+    fun addForm(formType: String, customerName: String, accountNumber: String, remarks: String, signature: String, fieldsJson: String, pdfFilePath: String? = null, onCompleted: (Long) -> Unit = {}) {
         viewModelScope.launch {
-            repository.insertForm(formType, customerName, accountNumber, remarks, signature, fieldsJson)
+            val id = repository.insertForm(formType, customerName, accountNumber, remarks, signature, fieldsJson, pdfFilePath)
+            onCompleted(id)
+        }
+    }
+
+    fun updateForm(form: DigitalForm) {
+        viewModelScope.launch {
+            repository.updateForm(form)
         }
     }
 

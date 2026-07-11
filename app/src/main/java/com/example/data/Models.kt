@@ -18,7 +18,8 @@ data class BankingItem(
     val isBalanced: Boolean = true,
     val isDelivered: Boolean = false,
     val deliveryDate: Long = 0L,
-    val isLetterIssued: Boolean = false
+    val isLetterIssued: Boolean = false,
+    val isDemo: Boolean = false
 )
 
 @Entity(tableName = "quantity_logs")
@@ -30,7 +31,8 @@ data class QuantityLog(
     val editedBy: String,
     val dateStr: String, // YYYY-MM-DD
     val timeStr: String, // HH:MM:SS
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val isDemo: Boolean = false
 )
 
 @Entity(tableName = "atm_loading_logs")
@@ -63,7 +65,8 @@ data class DigitalForm(
     val remarks: String,
     val signaturePath: String = "", // Base64 encoded or svg representation
     val jsonFields: String = "{}", // Store form-specific fields in JSON
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val pdfFilePath: String? = null
 )
 
 @Entity(tableName = "todo_tasks")
@@ -74,7 +77,8 @@ data class TodoTask(
     val dueDate: Long, // Start of day timestamp
     val dueTime: String, // "16:00"
     val isCompleted: Boolean = false,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val isDemo: Boolean = false
 )
 
 @Entity(tableName = "customer_hunting")
@@ -87,7 +91,8 @@ data class CustomerHunting(
     val isGrabbed: Boolean = false,
     val priority: String, // "HIGH", "MEDIUM", "LOW"
     val completionPercentage: Int = 0,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val isDemo: Boolean = false
 )
 
 @Entity(tableName = "branch_users")

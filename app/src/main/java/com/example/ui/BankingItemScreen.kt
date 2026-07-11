@@ -28,6 +28,7 @@ import com.example.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun BankingItemScreen(
     viewModel: BankingViewModel,
@@ -59,6 +60,8 @@ fun BankingItemScreen(
     var address by remember { mutableStateOf("") }
     var phoneNumber by remember { mutableStateOf("") }
     var remarks by remember { mutableStateOf("") }
+    var selectedReceivedDate by remember { mutableStateOf(System.currentTimeMillis()) }
+    var showDatePickerDialog by remember { mutableStateOf(false) }
     
     val sdf = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
 
@@ -228,19 +231,59 @@ fun BankingItemScreen(
                             .fillMaxWidth()
                             .background(SlateDark.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
                             .padding(10.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column {
-                            Text("Received Date", fontSize = 11.sp, color = GoldPrimary)
-                            Text(sdf.format(Date()), fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                        Column(
+                            modifier = Modifier
+                                .clickable { showDatePickerDialog = true }
+                                .padding(4.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text("Received Date 📅", fontSize = 11.sp, color = GoldPrimary)
+                                Icon(Icons.Default.Edit, contentDescription = "Edit Date", modifier = Modifier.size(12.dp), tint = GoldPrimary)
+                            }
+                            Text(sdf.format(Date(selectedReceivedDate)), fontSize = 13.sp, fontWeight = FontWeight.Medium, color = Color.White)
                         }
                         Column(horizontalAlignment = Alignment.End) {
                             Text("Auto-Destroy Date (+90 Days)", fontSize = 11.sp, color = RedAccent)
-                            val destroyDate = System.currentTimeMillis() + (90L * 24 * 3600 * 1000)
-                            Text(sdf.format(Date(destroyDate)), fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                            val destroyDate = selectedReceivedDate + (90L * 24L * 3600L * 1000L)
+                            Text(sdf.format(Date(destroyDate)), fontSize = 13.sp, fontWeight = FontWeight.Medium, color = Color.White)
                         }
                     }
 
+                    if (showDatePickerDialog) {
+                        val datePickerState = rememberDatePickerState(
+                            initialSelectedDateMillis = selectedReceivedDate
+                        )
+                        DatePickerDialog(
+                            onDismissRequest = { showDatePickerDialog = false },
+                            confirmButton = {
+                                TextButton(
+                                    onClick = {
+                                        datePickerState.selectedDateMillis?.let {
+                                            selectedReceivedDate = it
+                                        }
+                                        showDatePickerDialog = false
+                                    }
+                                ) {
+                                    Text("Confirm", color = GoldPrimary, fontWeight = FontWeight.Bold)
+                                }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { showDatePickerDialog = false }) {
+                                    Text("Cancel")
+                                }
+                            }
+                        ) {
+                            DatePicker(state = datePickerState)
+                        }
+                    }
+
+                    val context = androidx.compose.ui.platform.LocalContext.current
                     Button(
                         onClick = {
                             if (customerName.isNotBlank() && accountNumber.isNotBlank()) {
@@ -250,15 +293,30 @@ fun BankingItemScreen(
                                     acNo = accountNumber,
                                     address = address,
                                     phone = phoneNumber,
-                                    remarks = remarks
+                                    remarks = remarks,
+                                    dateOverride = selectedReceivedDate,
+                                    onDuplicate = {
+                                        android.widget.Toast.makeText(
+                                            context,
+                                            "Duplicate detected! An active $itemType already exists with same Name and A/C number.",
+                                            android.widget.Toast.LENGTH_LONG
+                                        ).show()
+                                    },
+                                    onSuccess = {
+                                        android.widget.Toast.makeText(
+                                            context,
+                                            "Successfully added $itemType!",
+                                            android.widget.Toast.LENGTH_SHORT
+                                        ).show()
+                                        // Clear inputs for another entry, keeping the form open
+                                        customerName = ""
+                                        accountNumber = ""
+                                        address = ""
+                                        phoneNumber = ""
+                                        remarks = ""
+                                        selectedReceivedDate = System.currentTimeMillis()
+                                    }
                                 )
-                                // Clear inputs
-                                customerName = ""
-                                accountNumber = ""
-                                address = ""
-                                phoneNumber = ""
-                                remarks = ""
-                                isAddingNew = false
                             }
                         },
                         modifier = Modifier.fillMaxWidth().testTag("save_button"),
@@ -672,26 +730,143 @@ fun BulkImportDialog(
                         }
                         "PHOTO" -> {
                             Text("Take a photo of a printed list, delivery register, or courier book. The built-in AI will scan and parse names and account numbers.", fontSize = 13.sp)
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(130.dp)
-                                    .clickable { photoCaptured = true },
-                                colors = CardDefaults.cardColors(containerColor = SlateDark)
-                            ) {
-                                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                    if (!photoCaptured) {
-                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                            Icon(Icons.Default.PhotoCamera, contentDescription = null, modifier = Modifier.size(32.dp), tint = GoldPrimary)
-                                            Spacer(modifier = Modifier.height(4.dp))
-                                            Text("Simulate Camera Capture", fontSize = 11.sp, color = Color.White)
+                            Text("Take a photo of a printed list, delivery register, or courier book. The built-in AI will scan and parse names and account numbers.", fontSize = 13.sp)
+                            if (!photoCaptured) {
+                                var isFlashOn by remember { mutableStateOf(false) }
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(200.dp)
+                                        .background(Color.Black, RoundedCornerShape(12.dp))
+                                        .padding(4.dp)
+                                ) {
+                                    // Bounding corners and scanlines simulation
+                                    androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
+                                        val w = size.width
+                                        val h = size.height
+                                        val lineLen = 30f
+                                        val strokeW = 4f
+                                        val col = GoldPrimary
+                                        
+                                        // Top Left
+                                        drawLine(col, androidx.compose.ui.geometry.Offset(0f, 0f), androidx.compose.ui.geometry.Offset(lineLen, 0f), strokeWidth = strokeW)
+                                        drawLine(col, androidx.compose.ui.geometry.Offset(0f, 0f), androidx.compose.ui.geometry.Offset(0f, lineLen), strokeWidth = strokeW)
+                                        
+                                        // Top Right
+                                        drawLine(col, androidx.compose.ui.geometry.Offset(w, 0f), androidx.compose.ui.geometry.Offset(w - lineLen, 0f), strokeWidth = strokeW)
+                                        drawLine(col, androidx.compose.ui.geometry.Offset(w, 0f), androidx.compose.ui.geometry.Offset(w, lineLen), strokeWidth = strokeW)
+                                        
+                                        // Bottom Left
+                                        drawLine(col, androidx.compose.ui.geometry.Offset(0f, h), androidx.compose.ui.geometry.Offset(lineLen, h), strokeWidth = strokeW)
+                                        drawLine(col, androidx.compose.ui.geometry.Offset(0f, h), androidx.compose.ui.geometry.Offset(0f, h - lineLen), strokeWidth = strokeW)
+                                        
+                                        // Bottom Right
+                                        drawLine(col, androidx.compose.ui.geometry.Offset(w, h), androidx.compose.ui.geometry.Offset(w - lineLen, h), strokeWidth = strokeW)
+                                        drawLine(col, androidx.compose.ui.geometry.Offset(w, h), androidx.compose.ui.geometry.Offset(w, h - lineLen), strokeWidth = strokeW)
+                                    }
+
+                                    // Camera Overlay Content (Mock text to scan)
+                                    Column(
+                                        modifier = Modifier
+                                            .align(Alignment.Center)
+                                            .padding(16.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Text("[ CHIRIRBANDAR BRANCH REGISTER SHEET ]", color = Color.White.copy(alpha = 0.3f), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                        Text("1. Sharmin Jahan  | A/C 1020304050", color = Color.White.copy(alpha = 0.4f), fontSize = 11.sp)
+                                        Text("2. Abu Bakar          | A/C 5060708090", color = Color.White.copy(alpha = 0.4f), fontSize = 11.sp)
+                                        Text("3. Shahnaj Begum  | A/C 3040506070", color = Color.White.copy(alpha = 0.4f), fontSize = 11.sp)
+                                    }
+
+                                    // Blinking REC Indicator
+                                    Row(
+                                        modifier = Modifier
+                                            .align(Alignment.TopStart)
+                                            .padding(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(6.dp)
+                                                .background(Color.Red, RoundedCornerShape(3.dp))
+                                        )
+                                        Text("LIVE 1080P", color = Color.Red, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                    }
+
+                                    // Flash trigger button in viewfinder
+                                    IconButton(
+                                        onClick = { isFlashOn = !isFlashOn },
+                                        modifier = Modifier
+                                            .align(Alignment.TopEnd)
+                                            .padding(4.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.FlashOn,
+                                            contentDescription = "Flash",
+                                            tint = if (isFlashOn) GoldPrimary else Color.White
+                                        )
+                                    }
+
+                                    // Shutter capture trigger
+                                    Box(
+                                        modifier = Modifier
+                                            .align(Alignment.BottomCenter)
+                                            .padding(bottom = 12.dp)
+                                            .size(44.dp)
+                                            .background(Color.White, RoundedCornerShape(22.dp))
+                                            .clickable { photoCaptured = true },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(36.dp)
+                                                .background(Color.Black, RoundedCornerShape(18.dp)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(28.dp)
+                                                    .background(GoldPrimary, RoundedCornerShape(14.dp))
+                                            )
                                         }
-                                    } else {
-                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                            Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(32.dp), tint = GreenAccent)
-                                            Spacer(modifier = Modifier.height(4.dp))
-                                            Text("Document Image Captured", fontSize = 11.sp, color = GreenAccent)
+                                    }
+                                }
+                            } else {
+                                // Photo Captured view with scanning animation overlay!
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(200.dp)
+                                        .background(SlateDark, RoundedCornerShape(12.dp)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(48.dp), tint = GoldPrimary)
+                                        Text("smartbanking_register_document.jpg", color = Color.Gray, fontSize = 11.sp)
+                                        Row(
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = GreenAccent, modifier = Modifier.size(14.dp))
+                                            Text("Document ready for OCR scanning", color = GreenAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                         }
+                                    }
+                                    
+                                    // Retake button
+                                    Button(
+                                        onClick = { photoCaptured = false },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.15f), contentColor = Color.White),
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                        modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp)
+                                    ) {
+                                        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(12.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Retake", fontSize = 10.sp)
                                     }
                                 }
                             }
@@ -740,11 +915,23 @@ fun BulkImportDialog(
         },
         confirmButton = {
             if (step == 1) {
+                val isEnabled = when (importType) {
+                    "PHOTO" -> photoCaptured
+                    "EXCEL" -> excelFileSelected != "No file selected"
+                    "SHEETS" -> sheetsUrl.isNotBlank()
+                    else -> true
+                }
                 Button(
                     onClick = {
                         step = 2
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary, contentColor = SlateDark)
+                    enabled = isEnabled,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = GoldPrimary,
+                        contentColor = SlateDark,
+                        disabledContainerColor = Color.Gray.copy(alpha = 0.3f),
+                        disabledContentColor = Color.White.copy(alpha = 0.5f)
+                    )
                 ) {
                     Text("Parse & Import")
                 }

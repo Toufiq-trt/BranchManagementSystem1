@@ -236,7 +236,8 @@ object FirebaseSyncHelper {
                                         remarks = map["remarks"] as? String ?: "",
                                         signaturePath = map["signaturePath"] as? String ?: "",
                                         jsonFields = map["jsonFields"] as? String ?: "{}",
-                                        timestamp = (map["timestamp"] as? Number)?.toLong() ?: 0L
+                                        timestamp = (map["timestamp"] as? Number)?.toLong() ?: 0L,
+                                        pdfFilePath = map["pdfFilePath"] as? String
                                     )
                                     repository.insertFormDirectly(form)
                                 }
