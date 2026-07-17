@@ -78,7 +78,9 @@ data class TodoTask(
     val dueTime: String, // "16:00"
     val isCompleted: Boolean = false,
     val timestamp: Long = System.currentTimeMillis(),
-    val isDemo: Boolean = false
+    val isDemo: Boolean = false,
+    val phoneNumber: String = "",
+    val mailerName: String = ""
 )
 
 @Entity(tableName = "customer_hunting")

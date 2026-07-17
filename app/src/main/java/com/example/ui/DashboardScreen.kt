@@ -44,10 +44,10 @@ fun DashboardScreen(
 
     // Counts
     val now = System.currentTimeMillis()
-    val pendingDebit = items.filter { it.type == "DEBIT_CARD" && !it.isDelivered && !it.isDestroyed && it.destroyAfter > now }.size
-    val pendingPin = items.filter { it.type == "PIN" && !it.isDelivered && !it.isDestroyed && it.destroyAfter > now }.size
-    val pendingCheque = items.filter { it.type == "CHEQUE_BOOK" && !it.isDelivered && !it.isDestroyed && it.destroyAfter > now }.size
-    val pendingDps = items.filter { it.type == "DPS" && !it.isDelivered && !it.isDestroyed && it.destroyAfter > now }.size
+    val pendingDebit = items.filter { it.type == "DEBIT_CARD" && !it.isDelivered && !it.isDestroyed }.size
+    val pendingPin = items.filter { it.type == "PIN" && !it.isDelivered && !it.isDestroyed }.size
+    val pendingCheque = items.filter { it.type == "CHEQUE_BOOK" && !it.isDelivered && !it.isDestroyed }.size
+    val pendingDps = items.filter { it.type == "DPS" && !it.isDelivered && !it.isDestroyed }.size
     val pendingTasks = tasks.filter { !it.isCompleted }.size
     
     // Today's ATM loading total
@@ -172,10 +172,10 @@ fun DashboardScreen(
             )
             IconButton(
                 onClick = {
-                    val activeDebitList = items.filter { it.type == "DEBIT_CARD" && !it.isDelivered && !it.isDestroyed && it.destroyAfter > now }
-                    val activePinList = items.filter { it.type == "PIN" && !it.isDelivered && !it.isDestroyed && it.destroyAfter > now }
-                    val activeDpsList = items.filter { it.type == "DPS" && !it.isDelivered && !it.isDestroyed && it.destroyAfter > now }
-                    val activeChequeList = items.filter { it.type == "CHEQUE_BOOK" && !it.isDelivered && !it.isDestroyed && it.destroyAfter > now }
+                    val activeDebitList = items.filter { it.type == "DEBIT_CARD" && !it.isDelivered && !it.isDestroyed }
+                    val activePinList = items.filter { it.type == "PIN" && !it.isDelivered && !it.isDestroyed }
+                    val activeDpsList = items.filter { it.type == "DPS" && !it.isDelivered && !it.isDestroyed }
+                    val activeChequeList = items.filter { it.type == "CHEQUE_BOOK" && !it.isDelivered && !it.isDestroyed }
 
                     val reportDate = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()).format(Date())
                     val reportTime = SimpleDateFormat("hh:mm a", Locale.getDefault()).format(Date())
@@ -264,7 +264,7 @@ fun DashboardScreen(
             }
         }
 
-        // 6-Card Statistics Grid
+        // 8-Card Statistics & Calculators Grid
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -278,15 +278,6 @@ fun DashboardScreen(
                     icon = Icons.Default.CreditCard,
                     iconColor = GoldPrimary,
                     onClick = { onNavigate("debit_card") }
-                )
-            }
-            item {
-                StatCard(
-                    title = "PIN",
-                    value = pendingPin.toString(),
-                    icon = Icons.Default.Key,
-                    iconColor = OrangeAccent,
-                    onClick = { onNavigate("pin") }
                 )
             }
             item {
@@ -323,6 +314,33 @@ fun DashboardScreen(
                     icon = Icons.Default.ReceiptLong,
                     iconColor = OrangeAccent,
                     onClick = { onNavigate("pay_order") }
+                )
+            }
+            item {
+                StatCard(
+                    title = "FD CALCULATOR",
+                    value = "Fixed Deposit",
+                    icon = Icons.Default.Calculate,
+                    iconColor = GoldPrimary,
+                    onClick = { onNavigate("fd_calc") }
+                )
+            }
+            item {
+                StatCard(
+                    title = "Loan Calculator",
+                    value = "EMI Estimates",
+                    icon = Icons.Default.Calculate,
+                    iconColor = GreenAccent,
+                    onClick = { onNavigate("loan_calc") }
+                )
+            }
+            item {
+                StatCard(
+                    title = "DPS Calculator",
+                    value = "DPS Savings",
+                    icon = Icons.Default.Calculate,
+                    iconColor = GoldLight,
+                    onClick = { onNavigate("dps_calc") }
                 )
             }
         }

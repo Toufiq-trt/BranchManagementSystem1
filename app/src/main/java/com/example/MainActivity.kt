@@ -77,16 +77,16 @@ fun MainContainer(viewModel: BankingViewModel) {
     // Navigation lists
     val menuItems = listOf(
         NavigationItem("dashboard", "Dashboard", Icons.Default.Dashboard),
+        NavigationItem("reports", "All Reports", Icons.Default.Assessment),
         NavigationItem("atm_calc", "ATM Replenishment", Icons.Default.LocalAtm),
         NavigationItem("hunting", "Customer Findings", Icons.Default.Groups),
-        NavigationItem("reports", "All Reports", Icons.Default.Assessment),
         NavigationItem("todo_log", "Todo List Log", Icons.Default.PlaylistAddCheck),
         NavigationItem("recycle_bin", "Recycle Bin", Icons.Default.Delete),
         NavigationItem("settings", "System Settings", Icons.Default.Settings)
     )
 
-    // Security screen check
-    if (viewModel.isPasscodeEnabled && !viewModel.isLoggedIn) {
+    // Security screen check - Bypass/Remove PIN requirement for direct login
+    if (false) {
         PasscodeLockScreen(viewModel)
     } else {
         ModalNavigationDrawer(
@@ -273,6 +273,9 @@ fun MainContainer(viewModel: BankingViewModel) {
                             "recycle_bin" -> RecycleBinScreen(viewModel)
                             "settings" -> SettingsScreen(viewModel)
                             "todo_log" -> TodoLogScreen(viewModel)
+                            "fd_calc" -> FdCalculatorScreen(viewModel)
+                            "loan_calc" -> LoanCalculatorScreen(viewModel)
+                            "dps_calc" -> DpsCalculatorScreen(viewModel)
                             else -> DashboardScreen(viewModel, onNavigate = { viewModel.currentScreen = it })
                         }
                     }
@@ -350,10 +353,47 @@ fun UniversalSearchResultsView(viewModel: BankingViewModel) {
                             Text(res.subtitle, fontSize = 12.sp)
                             Row(
                                 modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text("Date: ${res.receivedDate}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
                                 Text("Status: ${res.status}", fontSize = 11.sp, color = GreenAccent, fontWeight = FontWeight.Bold)
+                            }
+
+                            if (res.originalItem != null) {
+                                val item = res.originalItem
+                                val context = LocalContext.current
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.End,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    if (!item.isDelivered) {
+                                        Button(
+                                            onClick = {
+                                                viewModel.markAsDelivered(item)
+                                                Toast.makeText(context, "Successfully Delivered!", Toast.LENGTH_SHORT).show()
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary, contentColor = SlateDark),
+                                            shape = RoundedCornerShape(6.dp),
+                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                                            modifier = Modifier.height(28.dp)
+                                        ) {
+                                            Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(12.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("Deliver", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                    } else {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = GreenAccent, modifier = Modifier.size(14.dp))
+                                            Text("Delivered", fontSize = 11.sp, color = GreenAccent, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
                             }
                         }
                     }

@@ -2,6 +2,8 @@ package com.example.ui
 
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -39,10 +41,12 @@ fun BankingItemScreen(
     val items by viewModel.allItems.collectAsStateWithLifecycle()
     val filteredItems = items.filter { it.type == itemType }
 
-    var isAddingNew by remember { mutableStateOf(false) }
-    var tabSelected by remember { mutableStateOf(0) } // 0 = Active Balancing, 1 = Delivered List, 2 = Destruction History
-    var collapsedFolders by remember { mutableStateOf(setOf<String>()) }
+    var editingItem by remember { mutableStateOf<BankingItem?>(null) }
 
+    var isAddingNew by remember { mutableStateOf(false) }
+    var tabSelected by remember { mutableStateOf(0) } // 0 = Active, 1 = 30 Days Crossed, 2 = 90 Days Complete, 3 = Delivered List
+    var collapsedFolders by remember { mutableStateOf(setOf<String>()) }
+    
     // PDF Preview States
     var showPreviewDialog by remember { mutableStateOf(false) }
     var previewTitle by remember { mutableStateOf("") }
@@ -67,19 +71,42 @@ fun BankingItemScreen(
 
     // Filter items based on selected tab and search
     val now = System.currentTimeMillis()
-    val activeList = filteredItems.filter { !it.isDestroyed && it.destroyAfter > now && !it.isDelivered }
-    val deliveredList = filteredItems.filter { it.isDelivered && !it.isDestroyed }
-    val destroyedList = filteredItems.filter { it.isDestroyed || (it.destroyAfter <= now && !it.isDelivered) }
+    
+    // Active (Balancing): Received less than 30 days ago, not delivered and not destroyed
+    val activeList = filteredItems.filter { 
+        !it.isDelivered && !it.isDestroyed && ((now - it.receivedDate) / (1000L * 3600 * 24) < 30) 
+    }
+    
+    // 30 Days Completed: Received between 30 and 90 days ago, not delivered and not destroyed
+    val crossedList = filteredItems.filter { 
+        !it.isDelivered && !it.isDestroyed && 
+        ((now - it.receivedDate) / (1000L * 3600 * 24) >= 30) && 
+        ((now - it.receivedDate) / (1000L * 3600 * 24) < 90) 
+    }
+    
+    // 90 Days Completed: Received 90 days or more ago, not delivered and not destroyed
+    val completedList = filteredItems.filter { 
+        !it.isDelivered && !it.isDestroyed && ((now - it.receivedDate) / (1000L * 3600 * 24) >= 90) 
+    }
+    
+    // Delivered List: All delivered items
+    val deliveredList = filteredItems.filter { it.isDelivered }
+
+    // Destruction List: All marked destroyed items, not delivered
+    val destroyedList = filteredItems.filter { !it.isDelivered && it.isDestroyed }
 
     val currentDisplayList = when (tabSelected) {
         0 -> activeList
-        1 -> deliveredList
+        1 -> crossedList
+        2 -> completedList
+        3 -> deliveredList
         else -> destroyedList
     }
 
     Column(
         modifier = modifier
             .fillMaxSize()
+            .imePadding()
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
@@ -126,12 +153,16 @@ fun BankingItemScreen(
             exit = shrinkVertically() + fadeOut()
         ) {
             Card(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 480.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Column(
-                    modifier = Modifier.padding(16.dp),
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Text("Register New $itemType", fontWeight = FontWeight.Bold, color = GoldPrimary, fontSize = 14.sp)
@@ -331,11 +362,12 @@ fun BankingItemScreen(
             }
         }
 
-        // Active Balancing, Delivered, and Destruction List Toggle Tabs
-        TabRow(
+        // Active Balancing, 30 Days Completed, 90 Days Completed, Delivered List, and Destruction List Toggle Tabs
+        ScrollableTabRow(
             selectedTabIndex = tabSelected,
             containerColor = Color.Transparent,
             contentColor = GoldPrimary,
+            edgePadding = 0.dp,
             indicator = { tabPositions ->
                 TabRowDefaults.SecondaryIndicator(
                     modifier = Modifier.tabIndicatorOffset(tabPositions[tabSelected]),
@@ -346,17 +378,27 @@ fun BankingItemScreen(
             Tab(
                 selected = tabSelected == 0,
                 onClick = { tabSelected = 0 },
-                text = { Text("Active (${activeList.size})") }
+                text = { Text("Active (${activeList.size})", fontSize = 9.sp, fontWeight = FontWeight.Bold) }
             )
             Tab(
                 selected = tabSelected == 1,
                 onClick = { tabSelected = 1 },
-                text = { Text("Delivered (${deliveredList.size})") }
+                text = { Text("30d Completed (${crossedList.size})", fontSize = 9.sp, fontWeight = FontWeight.Bold) }
             )
             Tab(
                 selected = tabSelected == 2,
                 onClick = { tabSelected = 2 },
-                text = { Text("Destruction (${destroyedList.size})") }
+                text = { Text("90d Completed (${completedList.size})", fontSize = 9.sp, fontWeight = FontWeight.Bold) }
+            )
+            Tab(
+                selected = tabSelected == 3,
+                onClick = { tabSelected = 3 },
+                text = { Text("Delivered (${deliveredList.size})", fontSize = 9.sp, fontWeight = FontWeight.Bold) }
+            )
+            Tab(
+                selected = tabSelected == 4,
+                onClick = { tabSelected = 4 },
+                text = { Text("Destruction (${destroyedList.size})", fontSize = 9.sp, fontWeight = FontWeight.Bold) }
             )
         }
 
@@ -367,18 +409,22 @@ fun BankingItemScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             val labelText = when (tabSelected) {
-                0 -> "Active Balancing Records"
-                1 -> "Delivered Log"
-                else -> "Destruction Historical Log"
+                0 -> "Active Balancing Records (<30 Days)"
+                1 -> "30 Days Completed Records (30-90 Days)"
+                2 -> "90 Days Completed Records (>=90 Days)"
+                3 -> "Delivered Log"
+                else -> "Destruction Registry"
             }
-            Text(labelText, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = GoldPrimary)
+            Text(labelText, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = GoldPrimary)
             
             Button(
                 onClick = {
                     val labelSub = when (tabSelected) {
                         0 -> "ACTIVE REGISTRY"
-                        1 -> "DELIVERED LOG"
-                        else -> "DESTRUCTION HISTORY"
+                        1 -> "30 DAYS COMPLETED REGISTRY"
+                        2 -> "90 DAYS COMPLETED REGISTRY"
+                        3 -> "DELIVERED LOG"
+                        else -> "DESTRUCTION REGISTRY"
                     }
                     val pdfTitle = "${itemType.replace("_", " ")} $labelSub"
                     val headers = listOf("TYPE", "AC NUMBER", "NAME", "PHONE NUMBER", "ADDRESS")
@@ -408,77 +454,6 @@ fun BankingItemScreen(
             }
         }
 
-        // 30 Days Complete Section
-        if (itemType != "DPS" && tabSelected == 0) {
-            val thirtyDaysAgo = now - (30L * 24 * 3600 * 1000)
-            val thirtyDaysCompleteList = activeList.filter { it.receivedDate <= thirtyDaysAgo && !it.isDelivered && !it.isLetterIssued }
-            
-            if (thirtyDaysCompleteList.isNotEmpty()) {
-                Card(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.25f)),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "30 DAYS COMPLETE (${thirtyDaysCompleteList.size})",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onErrorContainer
-                            )
-                            
-                            var isNotifiedChecked by remember { mutableStateOf(false) }
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("Yes, Notified?", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onErrorContainer)
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Checkbox(
-                                    checked = isNotifiedChecked,
-                                    onCheckedChange = { checked ->
-                                        if (checked) {
-                                            thirtyDaysCompleteList.forEach { item ->
-                                                viewModel.markAsLetterIssued(item)
-                                            }
-                                        }
-                                    },
-                                    colors = CheckboxDefaults.colors(checkedColor = GoldPrimary)
-                                )
-                            }
-                        }
-                        
-                        Text(
-                            text = "Reminder needed for items sitting over 30 days.",
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f)
-                        )
-                        
-                        Column(
-                            verticalArrangement = Arrangement.spacedBy(6.dp),
-                            modifier = Modifier.fillMaxWidth().heightIn(max = 160.dp)
-                        ) {
-                            thirtyDaysCompleteList.forEach { item ->
-                                Card(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f))
-                                ) {
-                                    Column(modifier = Modifier.padding(10.dp)) {
-                                        Text("Account Number: ${item.accountNumber}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                                        Text("Customer Name: ${item.customerName}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
-                                        Text("Phone Number: ${item.phoneNumber}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
-                                        Text("Address: ${item.address}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
         // List of Records
         if (currentDisplayList.isEmpty()) {
             Box(
@@ -491,8 +466,10 @@ fun BankingItemScreen(
                     Icon(
                         imageVector = when (tabSelected) {
                             0 -> Icons.Default.AllInbox
-                            1 -> Icons.Default.CheckCircle
-                            else -> Icons.Default.DeleteSweep
+                            1 -> Icons.Default.Warning
+                            2 -> Icons.Default.DeleteSweep
+                            3 -> Icons.Default.CheckCircle
+                            else -> Icons.Default.DeleteForever
                         },
                         contentDescription = "Empty",
                         modifier = Modifier.size(60.dp),
@@ -501,9 +478,11 @@ fun BankingItemScreen(
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = when (tabSelected) {
-                            0 -> "No active items in balancing."
-                            1 -> "No delivered items found."
-                            else -> "Destruction list is empty."
+                            0 -> "No active items in balancing (<30 days)."
+                            1 -> "No 30 days completed items found."
+                            2 -> "No 90 days completed items found."
+                            3 -> "No delivered items logged."
+                            else -> "No items marked for destruction."
                         },
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                     )
@@ -596,6 +575,9 @@ fun BankingItemScreen(
                                         },
                                         onUndoDelivery = {
                                             viewModel.revertDelivery(item)
+                                        },
+                                        onEdit = {
+                                            editingItem = item
                                         }
                                     )
                                 }
@@ -620,6 +602,9 @@ fun BankingItemScreen(
                             },
                             onUndoDelivery = {
                                 viewModel.revertDelivery(item)
+                            },
+                            onEdit = {
+                                editingItem = item
                             }
                         )
                     }
@@ -634,15 +619,29 @@ fun BankingItemScreen(
             importType = bulkImportType,
             onDismiss = { showBulkImportDialog = false },
             onImportConfirmed = { parsedList ->
-                parsedList.forEach { triple ->
-                    viewModel.addBankingItem(
-                        type = itemType,
-                        name = triple.first,
-                        acNo = triple.second,
-                        address = triple.third,
-                        phone = "017" + (10000000 + Random().nextInt(90000000)),
-                        remarks = "Bulk Imported ($bulkImportType)"
-                    )
+                parsedList.forEach { row ->
+                    val name = row.getOrNull(0)?.uppercase()?.trim() ?: ""
+                    val acNo = row.getOrNull(1)?.trim() ?: ""
+                    val phone = row.getOrNull(2)?.trim() ?: ""
+                    val addressVal = row.getOrNull(3)?.uppercase()?.trim() ?: ""
+
+                    if (name.isNotBlank() && acNo.isNotBlank()) {
+                        // Prevent repeat entry: check if identical spelling and ac number already exists
+                        val isDuplicate = filteredItems.any {
+                            it.customerName.uppercase().trim() == name &&
+                            it.accountNumber.trim() == acNo
+                        }
+                        if (!isDuplicate) {
+                            viewModel.addBankingItem(
+                                type = itemType,
+                                name = name,
+                                acNo = acNo,
+                                address = addressVal,
+                                phone = phone,
+                                remarks = "BULK IMPORTED ($bulkImportType)"
+                            )
+                        }
+                    }
                 }
             }
         )
@@ -660,6 +659,83 @@ fun BankingItemScreen(
             }
         )
     }
+
+    if (editingItem != null) {
+        var editName by remember { mutableStateOf(editingItem?.customerName ?: "") }
+        var editAcNo by remember { mutableStateOf(editingItem?.accountNumber ?: "") }
+        var editPhone by remember { mutableStateOf(editingItem?.phoneNumber ?: "") }
+        var editAddress by remember { mutableStateOf(editingItem?.address ?: "") }
+        var editRemarks by remember { mutableStateOf(editingItem?.remarks ?: "") }
+
+        AlertDialog(
+            onDismissRequest = { editingItem = null },
+            title = { Text("Edit Saved Entry", color = GoldPrimary, fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = editName,
+                        onValueChange = { editName = it },
+                        label = { Text("Customer Name") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = editAcNo,
+                        onValueChange = { editAcNo = it },
+                        label = { Text("Account Number") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = editPhone,
+                        onValueChange = { editPhone = it },
+                        label = { Text("Phone Number") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = editAddress,
+                        onValueChange = { editAddress = it },
+                        label = { Text("Address") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = editRemarks,
+                        onValueChange = { editRemarks = it },
+                        label = { Text("Remarks") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        editingItem?.let { item ->
+                            val updated = item.copy(
+                                customerName = editName.uppercase().trim(),
+                                accountNumber = editAcNo.trim(),
+                                phoneNumber = editPhone.trim(),
+                                address = editAddress.uppercase().trim(),
+                                remarks = editRemarks.uppercase().trim()
+                            )
+                            viewModel.updateBankingItem(updated)
+                        }
+                        editingItem = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary, contentColor = SlateDark)
+                ) {
+                    Text("Save Changes", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { editingItem = null }) {
+                    Text("Cancel", color = Color.White)
+                }
+            }
+        )
+    }
 }
 
 @Composable
@@ -667,30 +743,35 @@ fun BulkImportDialog(
     itemType: String,
     importType: String, // "EXCEL", "PHOTO", "SHEETS"
     onDismiss: () -> Unit,
-    onImportConfirmed: (List<Triple<String, String, String>>) -> Unit
+    onImportConfirmed: (List<List<String>>) -> Unit
 ) {
     var step by remember { mutableStateOf(1) } // 1 = Input, 2 = Loading, 3 = Success
-    var sheetsUrl by remember { mutableStateOf("") }
+    var sheetsUrl by remember {
+        mutableStateOf(
+            if (itemType == "CHEQUE_BOOK") {
+                "https://docs.google.com/spreadsheets/d/1cakIYc79gR-YVnqKe4-i8J95AEuIKa4Q/edit?gid=2027095460#gid=2027095460"
+            } else {
+                "https://docs.google.com/spreadsheets/d/1e_22aHpRoJYBe9J0ohT-PzwHmXGhrOtNlsQeOVHg67M/edit?gid=0#gid=0"
+            }
+        )
+    }
     var excelFileSelected by remember { mutableStateOf("No file selected") }
     var photoCaptured by remember { mutableStateOf(false) }
 
     val simulatedResults = when (itemType) {
         "DEBIT_CARD" -> listOf(
-            Triple("Mst. Sharmin Jahan", "1020304050", "Ranirbandar, Dinajpur"),
-            Triple("Md. Abu Bakar", "5060708090", "Dinajpur Town"),
-            Triple("Shahnaj Begum", "3040506070", "Ranirbandar, Dinajpur")
-        )
-        "PIN" -> listOf(
-            Triple("Mst. Sharmin Jahan", "1020304050", "Ranirbandar, Dinajpur"),
-            Triple("Md. Abu Bakar", "5060708090", "Dinajpur Town")
+            listOf("Sharmin Jahan", "1020304050", "01712345678", "Ranirbandar, Dinajpur"),
+            listOf("Md. Abu Bakar", "5060708090", "01787654321", "Dinajpur Town"),
+            listOf("Shahnaj Begum", "3040506070", "01755554444", "Ranirbandar, Dinajpur")
         )
         "CHEQUE_BOOK" -> listOf(
-            Triple("Faruk Hossain", "2211445566", "Ranirbandar"),
-            Triple("Dr. Aminul Islam", "8899001122", "Dinajpur Sadar")
+            listOf("Faruk Hossain", "2211445566", "01799998888", "Ranirbandar"),
+            listOf("Dr. Aminul Islam", "8899001122", "01744443333", "Dinajpur Sadar"),
+            listOf("Mst. Rina Begum", "1122334455", "01711112222", "Chirirbandar")
         )
         else -> listOf(
-            Triple("Khadiza Khatun", "6655443322", "Ranirbandar"),
-            Triple("Zahid Hasan", "7788992211", "Ranirbandar")
+            listOf("Khadiza Khatun", "6655443322", "01722223333", "Ranirbandar"),
+            listOf("Zahid Hasan", "7788992211", "01766667777", "Ranirbandar")
         )
     }
 
@@ -729,7 +810,6 @@ fun BulkImportDialog(
                             Text("Selected: $excelFileSelected", fontSize = 12.sp, color = GoldLight, fontWeight = FontWeight.Medium)
                         }
                         "PHOTO" -> {
-                            Text("Take a photo of a printed list, delivery register, or courier book. The built-in AI will scan and parse names and account numbers.", fontSize = 13.sp)
                             Text("Take a photo of a printed list, delivery register, or courier book. The built-in AI will scan and parse names and account numbers.", fontSize = 13.sp)
                             if (!photoCaptured) {
                                 var isFlashOn by remember { mutableStateOf(false) }
@@ -971,7 +1051,8 @@ fun BankingItemRow(
     onMarkDelivered: () -> Unit,
     onMarkDestroyed: () -> Unit,
     onDelete: () -> Unit,
-    onUndoDelivery: (() -> Unit)? = null
+    onUndoDelivery: (() -> Unit)? = null,
+    onEdit: (() -> Unit)? = null
 ) {
     val sdf = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
     val daysLeft = ((item.destroyAfter - now) / (1000 * 3600 * 24)).toInt().coerceAtLeast(0)
@@ -999,6 +1080,7 @@ fun BankingItemRow(
                     modifier = Modifier
                         .background(
                             if (item.isDelivered) GoldPrimary.copy(alpha = 0.15f)
+                            else if (item.isDestroyed) RedAccent.copy(alpha = 0.15f)
                             else if (daysLeft > 10) GreenAccent.copy(alpha = 0.15f)
                             else RedAccent.copy(alpha = 0.15f),
                             RoundedCornerShape(6.dp)
@@ -1007,9 +1089,10 @@ fun BankingItemRow(
                 ) {
                     Text(
                         text = if (item.isDelivered) "DELIVERED"
-                               else if (daysLeft > 0 && !item.isDestroyed) "BALANCED: $daysLeft Days Left"
-                               else "DESTRUCTION HISTORY",
-                        color = if (item.isDelivered) GoldPrimary else if (daysLeft > 10) GreenAccent else RedAccent,
+                               else if (item.isDestroyed) "DESTRUCTED"
+                               else if (daysLeft > 0) "BALANCED: $daysLeft Days Left"
+                               else "90 DAYS COMPLETE",
+                        color = if (item.isDelivered) GoldPrimary else if (item.isDestroyed) RedAccent else if (daysLeft > 10) GreenAccent else RedAccent,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -1056,7 +1139,7 @@ fun BankingItemRow(
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                if (showDeliveryButton && !item.isDelivered && !item.isDestroyed && daysLeft > 0) {
+                if (showDeliveryButton && !item.isDelivered && !item.isDestroyed) {
                     Button(
                         onClick = onMarkDelivered,
                         colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary, contentColor = SlateDark),
@@ -1067,6 +1150,20 @@ fun BankingItemRow(
                         Icon(imageVector = Icons.Default.CheckCircle, contentDescription = "Deliver", modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
                         Text("Delivery", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                if (!item.isDelivered && !item.isDestroyed && daysLeft <= 0) {
+                    Button(
+                        onClick = onMarkDestroyed,
+                        colors = ButtonDefaults.buttonColors(containerColor = RedAccent, contentColor = Color.White),
+                        shape = RoundedCornerShape(6.dp),
+                        modifier = Modifier.padding(end = 8.dp).testTag("destruction_button"),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                    ) {
+                        Icon(imageVector = Icons.Default.DeleteForever, contentDescription = "Destroy", modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Destruction", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                 }
 
@@ -1081,6 +1178,15 @@ fun BankingItemRow(
                         Icon(imageVector = Icons.Default.Undo, contentDescription = "Undo Delivery", modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
                         Text("Active Back", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                if (onEdit != null) {
+                    IconButton(
+                        onClick = onEdit,
+                        colors = IconButtonDefaults.iconButtonColors(contentColor = GoldPrimary)
+                    ) {
+                        Icon(imageVector = Icons.Default.Edit, contentDescription = "Edit", modifier = Modifier.size(20.dp))
                     }
                 }
 

@@ -42,8 +42,8 @@ fun TaskAndHuntingScreen(
 
     // Task addition states
     var taskTitle by remember { mutableStateOf("") }
-    var taskPriority by remember { mutableStateOf("HIGH") }
-    var taskDueTime by remember { mutableStateOf("16:00") }
+    var taskPhone by remember { mutableStateOf("") }
+    var taskMailerName by remember { mutableStateOf("") }
 
     // Customer hunting addition states
     var leadName by remember { mutableStateOf("") }
@@ -122,40 +122,34 @@ fun TaskAndHuntingScreen(
                         )
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             OutlinedTextField(
-                                value = taskDueTime,
-                                onValueChange = { taskDueTime = it },
-                                label = { Text("Due Time (e.g. 16:00)") },
+                                value = taskPhone,
+                                onValueChange = { taskPhone = it },
+                                label = { Text("Phone Number") },
                                 modifier = Modifier.weight(1f),
                                 singleLine = true
                             )
-                            // Priority Selector
-                            var expandedPri by remember { mutableStateOf(false) }
-                            Box(modifier = Modifier.weight(1f)) {
-                                Button(
-                                    onClick = { expandedPri = true },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    colors = ButtonDefaults.buttonColors(containerColor = SlateDark)
-                                ) {
-                                    Text("Pri: $taskPriority", color = GoldPrimary)
-                                }
-                                DropdownMenu(expanded = expandedPri, onDismissRequest = { expandedPri = false }) {
-                                    listOf("HIGH", "MEDIUM", "LOW").forEach { p ->
-                                        DropdownMenuItem(
-                                            text = { Text(p) },
-                                            onClick = {
-                                                taskPriority = p
-                                                expandedPri = false
-                                            }
-                                        )
-                                    }
-                                }
-                            }
+                            OutlinedTextField(
+                                value = taskMailerName,
+                                onValueChange = { taskMailerName = it },
+                                label = { Text("Mailer Name") },
+                                modifier = Modifier.weight(1f),
+                                singleLine = true
+                            )
                         }
                         Button(
                             onClick = {
                                 if (taskTitle.isNotBlank()) {
-                                    viewModel.addTask(taskTitle, taskPriority, System.currentTimeMillis(), taskDueTime)
+                                    viewModel.addTask(
+                                        title = taskTitle,
+                                        priority = "MEDIUM",
+                                        dueDate = System.currentTimeMillis(),
+                                        dueTime = "",
+                                        phoneNumber = taskPhone,
+                                        mailerName = taskMailerName
+                                    )
                                     taskTitle = ""
+                                    taskPhone = ""
+                                    taskMailerName = ""
                                     isAddingTask = false
                                 }
                             },
@@ -312,34 +306,21 @@ fun TaskAndHuntingScreen(
                                             textDecoration = if (task.isCompleted) TextDecoration.LineThrough else TextDecoration.None,
                                             color = if (task.isCompleted) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f) else MaterialTheme.colorScheme.onSurface
                                         )
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .background(
-                                                        when (task.priority) {
-                                                            "HIGH" -> RedAccent.copy(alpha = 0.15f)
-                                                            "MEDIUM" -> OrangeAccent.copy(alpha = 0.15f)
-                                                            else -> SlateSecondary.copy(alpha = 0.15f)
-                                                        },
-                                                        RoundedCornerShape(4.dp)
-                                                    )
-                                                    .padding(horizontal = 6.dp, vertical = 2.dp)
-                                            ) {
-                                                Text(
-                                                    text = task.priority,
-                                                    fontSize = 9.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = when (task.priority) {
-                                                        "HIGH" -> RedAccent
-                                                        "MEDIUM" -> OrangeAccent
-                                                        else -> SlateSecondary
-                                                    }
-                                                )
+                                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                            if (task.phoneNumber.isNotBlank()) {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Icon(Icons.Default.Phone, contentDescription = null, modifier = Modifier.size(12.dp), tint = GoldLight)
+                                                    Spacer(modifier = Modifier.width(3.dp))
+                                                    Text(task.phoneNumber, fontSize = 11.sp, color = Color.White)
+                                                }
                                             }
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Icon(Icons.Default.AccessTime, contentDescription = null, modifier = Modifier.size(12.dp), tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
-                                            Spacer(modifier = Modifier.width(2.dp))
-                                            Text(task.dueTime, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                                            if (task.mailerName.isNotBlank()) {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(12.dp), tint = GreenAccent)
+                                                    Spacer(modifier = Modifier.width(3.dp))
+                                                    Text("Mailer: ${task.mailerName}", fontSize = 11.sp, color = GreenAccent)
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -395,10 +376,10 @@ fun TaskAndHuntingScreen(
                                     - Completion Rate: $completionPercent%
                                     
                                     PENDING TASKS BREAKDOWN:
-                                    ${tasks.filter { !it.isCompleted }.mapIndexed { i, t -> "${i + 1}. [${t.priority}] ${t.title} (Due: ${t.dueTime})" }.joinToString("\n").ifEmpty { "None (All Tasks Completed!)" }}
+                                    ${tasks.filter { !it.isCompleted }.mapIndexed { i, t -> "${i + 1}. Title: ${t.title}${if (t.phoneNumber.isNotBlank()) " | Phone: " + t.phoneNumber else ""}${if (t.mailerName.isNotBlank()) " | Mailer: " + t.mailerName else ""}" }.joinToString("\n").ifEmpty { "None (All Tasks Completed!)" }}
                                     
                                     COMPLETED TASKS BREAKDOWN:
-                                    ${tasks.filter { t -> t.isCompleted }.mapIndexed { i, t -> "${i + 1}. [${t.priority}] ${t.title} - COMPLETED" }.joinToString("\n").ifEmpty { "No tasks completed yet." }}
+                                    ${tasks.filter { t -> t.isCompleted }.mapIndexed { i, t -> "${i + 1}. Title: ${t.title}${if (t.phoneNumber.isNotBlank()) " | Phone: " + t.phoneNumber else ""}${if (t.mailerName.isNotBlank()) " | Mailer: " + t.mailerName else ""}" }.joinToString("\n").ifEmpty { "No tasks completed yet." }}
                                     
                                     Report generated via Branch Operations App.
                                 """.trimIndent()

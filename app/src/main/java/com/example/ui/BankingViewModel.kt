@@ -340,21 +340,23 @@ class BankingViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun addTask(title: String, priority: String, dueDate: Long, dueTime: String) {
+    fun addTask(title: String, priority: String, dueDate: Long, dueTime: String, phoneNumber: String = "", mailerName: String = "") {
         viewModelScope.launch {
-            repository.insertTask(title, priority, dueDate, dueTime)
+            repository.insertTask(title, priority, dueDate, dueTime, false, phoneNumber, mailerName)
         }
     }
 
-    fun addTaskWithDate(title: String, priority: String, dueDate: Long, dueTime: String, customTimestamp: Long) {
+    fun addTaskWithDate(title: String, priority: String, dueDate: Long, dueTime: String, customTimestamp: Long, phoneNumber: String = "", mailerName: String = "") {
         viewModelScope.launch {
             val task = TodoTask(
-                title = title,
-                priority = priority,
+                title = title.uppercase().trim(),
+                priority = priority.uppercase().trim(),
                 dueDate = dueDate,
                 dueTime = dueTime,
                 isCompleted = false,
-                timestamp = customTimestamp
+                timestamp = customTimestamp,
+                phoneNumber = phoneNumber.trim(),
+                mailerName = mailerName.uppercase().trim()
             )
             repository.insertTaskDirectly(task)
         }
@@ -483,10 +485,10 @@ class BankingViewModel(application: Application) : AndroidViewModel(application)
     // --- AI Suggestions Integration ---
     
     suspend fun getAiDashboardSummary(): String {
-        val activeCards = allItems.value.filter { it.type == "DEBIT_CARD" && !it.isDestroyed && it.destroyAfter > System.currentTimeMillis() }.size
-        val activePINs = allItems.value.filter { it.type == "PIN" && !it.isDestroyed && it.destroyAfter > System.currentTimeMillis() }.size
-        val activeCheques = allItems.value.filter { it.type == "CHEQUE_BOOK" && !it.isDestroyed && it.destroyAfter > System.currentTimeMillis() }.size
-        val activeDPS = allItems.value.filter { it.type == "DPS" && !it.isDestroyed && it.destroyAfter > System.currentTimeMillis() }.size
+        val activeCards = allItems.value.filter { it.type == "DEBIT_CARD" && !it.isDelivered && !it.isDestroyed }.size
+        val activePINs = allItems.value.filter { it.type == "PIN" && !it.isDelivered && !it.isDestroyed }.size
+        val activeCheques = allItems.value.filter { it.type == "CHEQUE_BOOK" && !it.isDelivered && !it.isDestroyed }.size
+        val activeDPS = allItems.value.filter { it.type == "DPS" && !it.isDelivered && !it.isDestroyed }.size
         
         val bondsTotal = prizeBondQty.value
         val poTotal = payOrderQty.value
@@ -599,14 +601,21 @@ class BankingViewModel(application: Application) : AndroidViewModel(application)
             }
             if (match) {
                 val now = System.currentTimeMillis()
-                val isExp = item.isDestroyed || now >= item.destroyAfter
+                val daysPassed = (now - item.receivedDate) / (1000L * 3600 * 24)
+                val statusText = when {
+                    item.isDelivered -> "Delivered"
+                    item.isDestroyed -> "Destroyed"
+                    daysPassed >= 90 -> "90 Days Completed"
+                    daysPassed >= 30 -> "30 Days Completed"
+                    else -> "Active Balancing"
+                }
                 results.add(
                     SearchResult(
                         moduleType = item.type,
                         title = item.customerName,
                         subtitle = "Acct: ${item.accountNumber} | Phone: ${item.phoneNumber}",
                         receivedDate = SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(item.receivedDate)),
-                        status = if (isExp) "Destroyed/Expired" else "Active Balancing",
+                        status = statusText,
                         originalItem = item
                     )
                 )

@@ -25,13 +25,13 @@ class BankingRepository(private val bankingDao: BankingDao) {
         val destroy = received + (90L * 24L * 60L * 60L * 1000L) // 90 days later
         val item = BankingItem(
             type = type,
-            customerName = customerName,
-            accountNumber = accountNumber,
-            address = address,
-            phoneNumber = phoneNumber,
+            customerName = customerName.uppercase().trim(),
+            accountNumber = accountNumber.trim(),
+            address = address.uppercase().trim(),
+            phoneNumber = phoneNumber.trim(),
             receivedDate = received,
             destroyAfter = destroy,
-            remarks = remarks,
+            remarks = remarks.uppercase().trim(),
             isDestroyed = false,
             isBalanced = true, // Automatically create active balancing entry
             isDemo = isDemo
@@ -43,8 +43,13 @@ class BankingRepository(private val bankingDao: BankingDao) {
     }
 
     suspend fun updateBankingItem(item: BankingItem) {
-        bankingDao.updateItem(item)
-        FirebaseSyncHelper.pushToFirebase("banking_items", item.id.toString(), item)
+        val upper = item.copy(
+            customerName = item.customerName.uppercase().trim(),
+            address = item.address.uppercase().trim(),
+            remarks = item.remarks.uppercase().trim()
+        )
+        bankingDao.updateItem(upper)
+        FirebaseSyncHelper.pushToFirebase("banking_items", upper.id.toString(), upper)
     }
 
     suspend fun deleteBankingItem(item: BankingItem) {
@@ -104,7 +109,7 @@ class BankingRepository(private val bankingDao: BankingDao) {
         val timeStr = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(now)
         
         val log = AtmLoadingLog(
-            atmName = atmName,
+            atmName = atmName.uppercase().trim(),
             dateStr = dateStr,
             timeStr = timeStr,
             c1Remaining = c1Remaining,
@@ -116,8 +121,8 @@ class BankingRepository(private val bankingDao: BankingDao) {
             c3Loading = c3Loading,
             c4Loading = c4Loading,
             loadingAmount = loadingAmount,
-            operatorName = operatorName,
-            remarks = remarks,
+            operatorName = operatorName.uppercase().trim(),
+            remarks = remarks.uppercase().trim(),
             timestamp = System.currentTimeMillis()
         )
         val id = bankingDao.insertAtmLoadingLog(log)
@@ -144,10 +149,10 @@ class BankingRepository(private val bankingDao: BankingDao) {
         val dateStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(now)
         val form = DigitalForm(
             formType = formType,
-            customerName = customerName,
-            accountNumber = accountNumber,
+            customerName = customerName.uppercase().trim(),
+            accountNumber = accountNumber.trim(),
             dateStr = dateStr,
-            remarks = remarks,
+            remarks = remarks.uppercase().trim(),
             signaturePath = signaturePath,
             jsonFields = jsonFields,
             timestamp = System.currentTimeMillis(),
@@ -160,8 +165,12 @@ class BankingRepository(private val bankingDao: BankingDao) {
     }
 
     suspend fun updateForm(form: DigitalForm) {
-        bankingDao.updateForm(form)
-        FirebaseSyncHelper.pushToFirebase("digital_forms", form.id.toString(), form)
+        val upper = form.copy(
+            customerName = form.customerName.uppercase().trim(),
+            remarks = form.remarks.uppercase().trim()
+        )
+        bankingDao.updateForm(upper)
+        FirebaseSyncHelper.pushToFirebase("digital_forms", upper.id.toString(), upper)
     }
 
     suspend fun deleteForm(form: DigitalForm) {
@@ -172,14 +181,16 @@ class BankingRepository(private val bankingDao: BankingDao) {
     // --- Todo Tasks ---
     fun getAllTasks(): Flow<List<TodoTask>> = bankingDao.getAllTasks()
     
-    suspend fun insertTask(title: String, priority: String, dueDate: Long, dueTime: String, isDemo: Boolean = false): Long {
+    suspend fun insertTask(title: String, priority: String, dueDate: Long, dueTime: String, isDemo: Boolean = false, phoneNumber: String = "", mailerName: String = ""): Long {
         val task = TodoTask(
-            title = title,
-            priority = priority,
+            title = title.uppercase().trim(),
+            priority = priority.uppercase().trim(),
             dueDate = dueDate,
             dueTime = dueTime,
             isCompleted = false,
-            isDemo = isDemo
+            isDemo = isDemo,
+            phoneNumber = phoneNumber.trim(),
+            mailerName = mailerName.uppercase().trim()
         )
         val id = bankingDao.insertTask(task)
         val finalTask = task.copy(id = id.toInt())
@@ -188,8 +199,13 @@ class BankingRepository(private val bankingDao: BankingDao) {
     }
 
     suspend fun updateTask(task: TodoTask) {
-        bankingDao.updateTask(task)
-        FirebaseSyncHelper.pushToFirebase("todo_tasks", task.id.toString(), task)
+        val upper = task.copy(
+            title = task.title.uppercase().trim(),
+            priority = task.priority.uppercase().trim(),
+            mailerName = task.mailerName.uppercase().trim()
+        )
+        bankingDao.updateTask(upper)
+        FirebaseSyncHelper.pushToFirebase("todo_tasks", upper.id.toString(), upper)
     }
 
     suspend fun deleteTask(task: TodoTask) {
@@ -210,12 +226,12 @@ class BankingRepository(private val bankingDao: BankingDao) {
         isDemo: Boolean = false
     ): Long {
         val hunting = CustomerHunting(
-            customerName = customerName,
-            phoneNumber = phoneNumber,
-            address = address,
-            interestedProduct = interestedProduct,
+            customerName = customerName.uppercase().trim(),
+            phoneNumber = phoneNumber.trim(),
+            address = address.uppercase().trim(),
+            interestedProduct = interestedProduct.uppercase().trim(),
             isGrabbed = completionPercentage >= 100,
-            priority = priority,
+            priority = priority.uppercase().trim(),
             completionPercentage = completionPercentage,
             isDemo = isDemo
         )
@@ -226,8 +242,14 @@ class BankingRepository(private val bankingDao: BankingDao) {
     }
 
     suspend fun updateHunting(hunting: CustomerHunting) {
-        bankingDao.updateHunting(hunting)
-        FirebaseSyncHelper.pushToFirebase("customer_hunting", hunting.id.toString(), hunting)
+        val upper = hunting.copy(
+            customerName = hunting.customerName.uppercase().trim(),
+            address = hunting.address.uppercase().trim(),
+            interestedProduct = hunting.interestedProduct.uppercase().trim(),
+            priority = hunting.priority.uppercase().trim()
+        )
+        bankingDao.updateHunting(upper)
+        FirebaseSyncHelper.pushToFirebase("customer_hunting", upper.id.toString(), upper)
     }
 
     suspend fun deleteHunting(hunting: CustomerHunting) {
@@ -360,7 +382,7 @@ class BankingRepository(private val bankingDao: BankingDao) {
     }
 
     suspend fun checkDuplicateItem(type: String, name: String, accountNumber: String): Boolean {
-        return bankingDao.checkDuplicateItem(type, name, accountNumber) != null
+        return bankingDao.checkDuplicateItem(type, name.uppercase().trim(), accountNumber.trim()) != null
     }
 
     suspend fun clearAllDemoData() {

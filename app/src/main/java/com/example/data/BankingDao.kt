@@ -135,7 +135,7 @@ interface BankingDao {
     @Query("DELETE FROM recycle_bin WHERE deletedTimestamp < :cutoff")
     suspend fun autoPurgeRecycleBin(cutoff: Long)
 
-    @Query("SELECT * FROM banking_items WHERE type = :type AND customerName = :name AND accountNumber = :accountNumber AND isDestroyed = 0 AND isDelivered = 0 LIMIT 1")
+    @Query("SELECT * FROM banking_items WHERE type = :type AND customerName = :name AND accountNumber = :accountNumber LIMIT 1")
     suspend fun checkDuplicateItem(type: String, name: String, accountNumber: String): BankingItem?
 
     @Query("DELETE FROM banking_items WHERE isDemo = 1")

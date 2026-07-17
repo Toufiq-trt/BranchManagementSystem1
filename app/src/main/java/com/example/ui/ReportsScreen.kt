@@ -52,6 +52,10 @@ fun ReportsScreen(
     var previewTextContent by remember { mutableStateOf<String?>(null) }
     var onConfirmDownload by remember { mutableStateOf<() -> Unit>({}) }
 
+    // Mail Generator States
+    var showMailGeneratorDialog by remember { mutableStateOf(false) }
+    var generatedMailText by remember { mutableStateOf("") }
+
     fun formatPdfFileName(fileName: String): String {
         val todayStr = SimpleDateFormat("d-M-yyyy", Locale.getDefault()).format(Date())
         val nameWithoutExt = fileName.substringBeforeLast(".pdf", fileName)
@@ -509,90 +513,131 @@ fun ReportsScreen(
 
                     // ---- TAB 4: 1 MONTH COMPLETE ----
                     4 -> {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "1 Month Complete List (${oneMonthCompleteList.size})",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp,
-                                color = GoldPrimary
-                            )
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            // High-Craft Premium Accent Action Bar
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(SlateDark, RoundedCornerShape(10.dp))
+                                    .padding(12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "1 Month Complete (${oneMonthCompleteList.size} Items)",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
+                                    color = GoldPrimary
+                                )
 
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                // Mark All as Mailed Button
-                                if (oneMonthCompleteList.isNotEmpty()) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    // 1. GENERATE MAIL
                                     Button(
                                         onClick = {
+                                            if (oneMonthCompleteList.isEmpty()) {
+                                                Toast.makeText(context, "No 30-day stayed items available to mail.", Toast.LENGTH_SHORT).show()
+                                                return@Button
+                                            }
+                                            val mailTemplate = buildString {
+                                                append("SUBJECT: URGENT NOTIFICATION - UNCLAIMED SECURITY ITEMS AT TOUFIQ BRANCH\n\n")
+                                                append("Date: ${SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date())}\n\n")
+                                                append("Dear Valued Customers,\n\n")
+                                                append("This is an official notification from ToufiqBranch regarding your banking instruments (Debit Cards, PINs, or Cheque Books) that have remained uncollected at our branch for more than 30 days.\n\n")
+                                                append("Outstanding customer instruments listing:\n")
+                                                append("==================================================================\n")
+                                                oneMonthCompleteList.forEachIndexed { idx, item ->
+                                                    append("${idx + 1}. NAME: ${item.customerName} | A/C: ${item.accountNumber} | ITEM: ${item.type} | PHONE: ${item.phoneNumber}\n")
+                                                }
+                                                append("==================================================================\n\n")
+                                                append("We request you to visit ToufiqBranch during branch business hours with valid Photo Identification (NID or Passport) to claim your items.\n\n")
+                                                append("Note: As per security regulations, unclaimed instruments remaining in-branch for over 90 days are subject to permanent destruction.\n\n")
+                                                append("Sincerely,\n")
+                                                append("Branch Manager, ToufiqBranch\n")
+                                            }
+                                            generatedMailText = mailTemplate
+                                            showMailGeneratorDialog = true
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary, contentColor = SlateDark),
+                                        shape = RoundedCornerShape(6.dp),
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                        modifier = Modifier.height(32.dp),
+                                        enabled = oneMonthCompleteList.isNotEmpty()
+                                    ) {
+                                        Icon(Icons.Default.MailOutline, contentDescription = null, modifier = Modifier.size(14.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Generate Mail", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
+
+                                    // 2. DOWNLOAD DOCX
+                                    Button(
+                                        onClick = {
+                                            if (oneMonthCompleteList.isEmpty()) return@Button
+                                            com.example.util.DocxHelper.generateAndShareDocx(context, "Unclaimed_Notifications.docx", oneMonthCompleteList)
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = SlateSecondary, contentColor = Color.White),
+                                        shape = RoundedCornerShape(6.dp),
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                        modifier = Modifier.height(32.dp),
+                                        enabled = oneMonthCompleteList.isNotEmpty()
+                                    ) {
+                                        Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(14.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Download DOCX", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
+
+                                    // 3. CLEAR ALL
+                                    Button(
+                                        onClick = {
+                                            if (oneMonthCompleteList.isEmpty()) {
+                                                Toast.makeText(context, "Nothing to clear.", Toast.LENGTH_SHORT).show()
+                                                return@Button
+                                            }
                                             oneMonthCompleteList.forEach { item ->
                                                 viewModel.markAsLetterIssued(item)
                                             }
-                                            Toast.makeText(context, "All ${oneMonthCompleteList.size} items marked as Mailed!", Toast.LENGTH_LONG).show()
+                                            Toast.makeText(context, "Successfully cleared all ${oneMonthCompleteList.size} items!", Toast.LENGTH_LONG).show()
                                         },
-                                        colors = ButtonDefaults.buttonColors(containerColor = GreenAccent, contentColor = SlateDark),
+                                        colors = ButtonDefaults.buttonColors(containerColor = RedAccent, contentColor = Color.White),
                                         shape = RoundedCornerShape(6.dp),
-                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                        modifier = Modifier.height(32.dp),
+                                        enabled = oneMonthCompleteList.isNotEmpty()
                                     ) {
-                                        Icon(Icons.Default.Mail, contentDescription = null, modifier = Modifier.size(14.dp))
+                                        Icon(Icons.Default.ClearAll, contentDescription = null, modifier = Modifier.size(14.dp))
                                         Spacer(modifier = Modifier.width(4.dp))
-                                        Text("Mark All & Mailed", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                        Text("Clear All", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                     }
                                 }
+                            }
 
-                                Button(
-                                    onClick = {
-                                        if (oneMonthCompleteList.isEmpty()) return@Button
-                                        val headers = listOf("TYPE", "AC NUMBER", "NAME", "PHONE NUMBER", "ADDRESS", "1 MONTH COMPLETE")
-                                        val rows = oneMonthCompleteList.map { item ->
-                                            listOf(
-                                                item.type,
-                                                item.accountNumber,
-                                                item.customerName,
-                                                item.phoneNumber,
-                                                item.address,
-                                                getOneMonthCompletePeriod(item.receivedDate)
-                                            )
-                                        }
-                                        previewAndDownloadTable("1 MONTH COMPLETE EXPIRY", headers, rows, "one_month_complete_report.pdf")
-                                    },
-                                    enabled = oneMonthCompleteList.isNotEmpty(),
-                                    colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary, contentColor = SlateDark),
-                                    shape = RoundedCornerShape(6.dp),
-                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
-                                ) {
-                                    Icon(Icons.Default.PictureAsPdf, contentDescription = null, modifier = Modifier.size(14.dp))
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Export PDF", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            if (oneMonthCompleteList.isEmpty()) {
+                                Box(modifier = Modifier.fillMaxWidth().height(250.dp), contentAlignment = Alignment.Center) {
+                                    Text("No records have crossed 30 days without delivery.", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
                                 }
-                            }
-                        }
-
-                        if (oneMonthCompleteList.isEmpty()) {
-                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                Text("No records have crossed 30 days without delivery.", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
-                            }
-                        } else {
-                            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                items(oneMonthCompleteList) { item ->
-                                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-                                        Column(modifier = Modifier.padding(12.dp)) {
-                                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                                Text(item.customerName, fontWeight = FontWeight.Bold, color = Color.White, fontSize = 14.sp)
-                                                Text("[${item.type}]", fontSize = 11.sp, color = GoldLight)
+                            } else {
+                                LazyColumn(
+                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.fillMaxSize()
+                                ) {
+                                    items(oneMonthCompleteList) { item ->
+                                        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                                            Column(modifier = Modifier.padding(12.dp)) {
+                                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                                    Text(item.customerName, fontWeight = FontWeight.Bold, color = Color.White, fontSize = 14.sp)
+                                                    Text("[${item.type}]", fontSize = 11.sp, color = GoldLight)
+                                                }
+                                                Spacer(modifier = Modifier.height(4.dp))
+                                                Text("A/C Number: ${item.accountNumber}", fontSize = 13.sp)
+                                                Text("Phone: ${item.phoneNumber}", fontSize = 12.sp)
+                                                Text("Address: ${item.address}", fontSize = 12.sp)
+                                                Spacer(modifier = Modifier.height(4.dp))
+                                                Text(
+                                                    text = "1 Month Complete: ${getOneMonthCompletePeriod(item.receivedDate)}",
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 12.sp,
+                                                    color = GreenAccent
+                                                )
                                             }
-                                            Spacer(modifier = Modifier.height(4.dp))
-                                            Text("A/C Number: ${item.accountNumber}", fontSize = 13.sp)
-                                            Text("Phone: ${item.phoneNumber}", fontSize = 12.sp)
-                                            Text("Address: ${item.address}", fontSize = 12.sp)
-                                            Spacer(modifier = Modifier.height(4.dp))
-                                            Text(
-                                                text = "1 Month Complete: ${getOneMonthCompletePeriod(item.receivedDate)}",
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 12.sp,
-                                                color = GreenAccent
-                                            )
                                         }
                                     }
                                 }
@@ -1025,6 +1070,63 @@ fun ReportsScreen(
             onDownload = {
                 onConfirmDownload()
             }
+        )
+    }
+
+    if (showMailGeneratorDialog) {
+        val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
+        AlertDialog(
+            onDismissRequest = { showMailGeneratorDialog = false },
+            title = {
+                Text(
+                    "Notification Mail Draft",
+                    fontWeight = FontWeight.Bold,
+                    color = GoldPrimary,
+                    fontSize = 16.sp
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "Review and copy the compiled customer notice:",
+                        fontSize = 12.sp,
+                        color = Color.LightGray
+                    )
+                    OutlinedTextField(
+                        value = generatedMailText,
+                        onValueChange = { generatedMailText = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(260.dp),
+                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 11.sp, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = GoldPrimary,
+                            unfocusedBorderColor = SlateSecondary
+                        ),
+                        readOnly = false
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(generatedMailText))
+                        Toast.makeText(context, "Notification mail copied to clipboard!", Toast.LENGTH_SHORT).show()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary, contentColor = SlateDark)
+                ) {
+                    Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Copy Draft", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showMailGeneratorDialog = false }) {
+                    Text("Close", color = Color.Gray)
+                }
+            },
+            containerColor = DarkSurface,
+            shape = RoundedCornerShape(12.dp)
         )
     }
 }
