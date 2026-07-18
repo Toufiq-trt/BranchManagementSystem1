@@ -143,6 +143,22 @@ fun MainContainer(viewModel: BankingViewModel) {
                                     scope.launch { drawerState.close() }
                                 },
                                 icon = { Icon(item.icon, contentDescription = null, tint = if (isSelected) GoldPrimary else MaterialTheme.colorScheme.onSurface) },
+                                badge = {
+                                    if (item.id == "settings" && viewModel.isUpdateAvailable) {
+                                        Box(
+                                            modifier = Modifier
+                                                .background(GoldPrimary, RoundedCornerShape(4.dp))
+                                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                        ) {
+                                            Text(
+                                                text = "UPDATE",
+                                                color = SlateDark,
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+                                },
                                 colors = NavigationDrawerItemDefaults.colors(
                                     selectedContainerColor = GoldPrimary.copy(alpha = 0.15f),
                                     selectedTextColor = GoldPrimary

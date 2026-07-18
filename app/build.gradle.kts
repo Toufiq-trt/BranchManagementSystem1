@@ -17,8 +17,8 @@ android {
     applicationId = "com.aistudio.smartbanking.tfqsys"
     minSdk = 24
     targetSdk = 34
-    versionCode = 2
-    versionName = "1.1"
+    versionCode = 23
+    versionName = "1.23"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
