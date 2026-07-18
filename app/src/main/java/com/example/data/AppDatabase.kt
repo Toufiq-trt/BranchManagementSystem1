@@ -18,9 +18,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         BranchUser::class,
         PasswordHistoryEntry::class,
         LetterIssued::class,
-        RecycleBinItem::class
+        RecycleBinItem::class,
+        DeletedItemTracker::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

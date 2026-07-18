@@ -1069,6 +1069,14 @@ fun ReportsScreen(
             onDismiss = { showPreviewDialog = false },
             onDownload = {
                 onConfirmDownload()
+            },
+            onDownloadExcel = if (previewHeaders != null && previewRows != null) {
+                {
+                    val excelFileName = previewTitle.replace(" ", "_").lowercase() + ".csv"
+                    com.example.util.ExcelHelper.generateGenericExcel(context, excelFileName, previewHeaders!!, previewRows!!)
+                }
+            } else {
+                null
             }
         )
     }

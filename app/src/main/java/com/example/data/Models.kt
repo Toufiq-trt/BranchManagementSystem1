@@ -138,3 +138,13 @@ data class RecycleBinItem(
     val serializedData: String,
     val deletedTimestamp: Long = System.currentTimeMillis()
 )
+
+@Entity(tableName = "deleted_items_tracker")
+data class DeletedItemTracker(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val type: String,
+    val customerName: String,
+    val accountNumber: String,
+    val deletedTimestamp: Long = System.currentTimeMillis()
+)
+

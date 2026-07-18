@@ -176,4 +176,11 @@ interface BankingDao {
 
     @Query("DELETE FROM password_history")
     suspend fun clearPasswordHistory()
+
+    // --- Deleted Items Tracker (to avoid syncing deleted rows) ---
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertDeletedItemTracker(tracker: DeletedItemTracker): Long
+
+    @Query("SELECT * FROM deleted_items_tracker WHERE type = :type AND customerName = :customerName AND accountNumber = :accountNumber LIMIT 1")
+    suspend fun findDeletedItem(type: String, customerName: String, accountNumber: String): DeletedItemTracker?
 }

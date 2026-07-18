@@ -143,7 +143,7 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("Official Spreadsheet Templates", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = GoldPrimary)
-                    Text("Copy or click template links to set up your import sheets. Keep the column headings in the exact sequential order listed below.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                    Text("Copy and set up your import sheets using the link below. Keep the column headings in the exact sequential order listed below.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
 
                     // Template 1: Debit Card & PIN
                     Column(
@@ -158,31 +158,17 @@ fun SettingsScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text("1. Debit Card & PIN", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = GoldPrimary)
-                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                TextButton(
-                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
-                                    onClick = {
-                                        val url = "https://docs.google.com/spreadsheets/d/1Xy_Jp7MIsB-kF08v_16VjYh6x5hUoVwAit9N4x9Gj01/edit?usp=sharing"
-                                        clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(url))
-                                        userMessage = "Google Sheet link copied to clipboard!"
-                                    }
-                                ) {
-                                    Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(12.dp), tint = GoldPrimary)
-                                    Spacer(modifier = Modifier.width(3.dp))
-                                    Text("Sheets Link", fontSize = 10.sp, color = GoldPrimary)
+                            TextButton(
+                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+                                onClick = {
+                                    val url = "https://docs.google.com/spreadsheets/d/1BUc13oZ_qKIBW9OOFtcPAZh9aoELxyVq6sguoAyAdFg/edit?usp=sharing"
+                                    clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(url))
+                                    userMessage = "Official Sheets link copied!"
                                 }
-                                TextButton(
-                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
-                                    onClick = {
-                                        val url = "https://onedrive.live.com/download?resid=TFQ_DEBIT_CARDS_PIN_TEMPLATE"
-                                        clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(url))
-                                        userMessage = "Excel link copied to clipboard!"
-                                    }
-                                ) {
-                                    Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(12.dp), tint = GreenAccent)
-                                    Spacer(modifier = Modifier.width(3.dp))
-                                    Text("Excel Link", fontSize = 10.sp, color = GreenAccent)
-                                }
+                            ) {
+                                Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(12.dp), tint = GoldPrimary)
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Text("Copy Sheets Link", fontSize = 10.sp, color = GoldPrimary)
                             }
                         }
                         Spacer(modifier = Modifier.height(4.dp))
@@ -206,31 +192,17 @@ fun SettingsScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text("2. DPS Slip", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = GoldPrimary)
-                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                TextButton(
-                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
-                                    onClick = {
-                                        val url = "https://docs.google.com/spreadsheets/d/1Yh_Gp8LKsC-lH09w_27VkZg7y6jVpWxCiu9M4x9Gk02/edit?usp=sharing"
-                                        clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(url))
-                                        userMessage = "Google Sheet link copied to clipboard!"
-                                    }
-                                ) {
-                                    Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(12.dp), tint = GoldPrimary)
-                                    Spacer(modifier = Modifier.width(3.dp))
-                                    Text("Sheets Link", fontSize = 10.sp, color = GoldPrimary)
+                            TextButton(
+                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+                                onClick = {
+                                    val url = "https://docs.google.com/spreadsheets/d/1BUc13oZ_qKIBW9OOFtcPAZh9aoELxyVq6sguoAyAdFg/edit?usp=sharing"
+                                    clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(url))
+                                    userMessage = "Official Sheets link copied!"
                                 }
-                                TextButton(
-                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
-                                    onClick = {
-                                        val url = "https://onedrive.live.com/download?resid=TFQ_DPS_SLIP_TEMPLATE"
-                                        clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(url))
-                                        userMessage = "Excel link copied to clipboard!"
-                                    }
-                                ) {
-                                    Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(12.dp), tint = GreenAccent)
-                                    Spacer(modifier = Modifier.width(3.dp))
-                                    Text("Excel Link", fontSize = 10.sp, color = GreenAccent)
-                                }
+                            ) {
+                                Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(12.dp), tint = GoldPrimary)
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Text("Copy Sheets Link", fontSize = 10.sp, color = GoldPrimary)
                             }
                         }
                         Spacer(modifier = Modifier.height(4.dp))
@@ -254,31 +226,17 @@ fun SettingsScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text("3. CHEQUE BOOK", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = GoldPrimary)
-                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                TextButton(
-                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
-                                    onClick = {
-                                        val url = "https://docs.google.com/spreadsheets/d/1Zh_Ip9MKsD-mI10x_38WkAh8z7kVpWxDiu9M4x9Gl03/edit?usp=sharing"
-                                        clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(url))
-                                        userMessage = "Google Sheet link copied to clipboard!"
-                                    }
-                                ) {
-                                    Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(12.dp), tint = GoldPrimary)
-                                    Spacer(modifier = Modifier.width(3.dp))
-                                    Text("Sheets Link", fontSize = 10.sp, color = GoldPrimary)
+                            TextButton(
+                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+                                onClick = {
+                                    val url = "https://docs.google.com/spreadsheets/d/1BUc13oZ_qKIBW9OOFtcPAZh9aoELxyVq6sguoAyAdFg/edit?usp=sharing"
+                                    clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(url))
+                                    userMessage = "Official Sheets link copied!"
                                 }
-                                TextButton(
-                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
-                                    onClick = {
-                                        val url = "https://onedrive.live.com/download?resid=TFQ_CHEQUE_BOOK_TEMPLATE"
-                                        clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(url))
-                                        userMessage = "Excel link copied to clipboard!"
-                                    }
-                                ) {
-                                    Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(12.dp), tint = GreenAccent)
-                                    Spacer(modifier = Modifier.width(3.dp))
-                                    Text("Excel Link", fontSize = 10.sp, color = GreenAccent)
-                                }
+                            ) {
+                                Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(12.dp), tint = GoldPrimary)
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Text("Copy Sheets Link", fontSize = 10.sp, color = GoldPrimary)
                             }
                         }
                         Spacer(modifier = Modifier.height(4.dp))

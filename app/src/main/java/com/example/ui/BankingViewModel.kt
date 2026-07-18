@@ -178,50 +178,17 @@ class BankingViewModel(application: Application) : AndroidViewModel(application)
             simulatedStorageGranted = true
             simulatedLocationGranted = true
 
-            // Seed sample data if database is empty on first boot
-            seedSampleDataIfEmpty()
+            // No dummy data seeding. Instead, guarantee that any previously seeded demo/sample data
+            // is wiped on update without affecting the officer's real inputted entries.
+            repository.clearAllDemoData()
+            
+            // Sync all existing manually inputted / active data to the Excel sheet in the background
+            syncExistingDataToExcelInBackground()
         }
     }
 
     private suspend fun seedSampleDataIfEmpty() {
-        val sharedPrefs = getApplication<Application>().getSharedPreferences("smart_banking_prefs", android.content.Context.MODE_PRIVATE)
-        val hasSeeded = sharedPrefs.getBoolean("database_seeded", false)
-        if (hasSeeded) {
-            return
-        }
-
-        if (repository.getAllItems().first().isEmpty()) {
-            val now = System.currentTimeMillis()
-            // Seed a few pending/active items
-            repository.insertBankingItem("DEBIT_CARD", "Abdul Rahman", "1029481726", "Dhaka, Bangladesh", "01712345678", now - 5 * 24 * 3600 * 1000L, "Express processing requested", isDemo = true)
-            repository.insertBankingItem("DEBIT_CARD", "Sumaiya Akter", "2048591827", "Sylhet", "01812345678", now - 25 * 24 * 3600 * 1000L, "Waiting for pickup", isDemo = true)
-            repository.insertBankingItem("PIN", "Abdul Rahman", "1029481726", "Dhaka, Bangladesh", "01712345678", now - 3 * 24 * 3600 * 1000L, "PIN mailer received", isDemo = true)
-            repository.insertBankingItem("CHEQUE_BOOK", "Kazi Toufiq", "5512349876", "Ranirbandar, Dinajpur", "01999887766", now - 10 * 24 * 3600 * 1000L, "100 pages book", isDemo = true)
-            repository.insertBankingItem("DPS", "Nusrat Jahan", "3094817263", "Thakurgaon", "01512345678", now - 85 * 24 * 3600 * 1000L, "DPS card delivery", isDemo = true) // Near expiry!
-            
-            // Seed expired item (past 90 days) to showcase automatic destruction transfer
-            repository.insertBankingItem("DEBIT_CARD", "Farhana Islam", "9081726354", "Panchagarh", "01312345678", now - 95 * 24 * 3600 * 1000L, "Customer failed to collect", isDemo = true)
-
-            // Seed Prize Bond / Pay Order initial quantities
-            repository.updateQuantity("PRIZE_BOND", 120, "System Admin", isDemo = true)
-            repository.updateQuantity("PAY_ORDER", 45, "System Admin", isDemo = true)
-            prizeBondQty.value = 120
-            payOrderQty.value = 45
-
-            // Seed some tasks
-            repository.insertTask("Balance physical debit card register", "HIGH", now, "11:00 AM", isDemo = true)
-            repository.insertTask("Replenish ATM-25 Dinajpur main safe", "MEDIUM", now, "2:30 PM", isDemo = true)
-            repository.insertTask("Verify Supplementary Card applications", "LOW", now + 24 * 3600 * 1000L, "4:00 PM", isDemo = true)
-
-            // Seed some hunting clients
-            repository.insertHunting("Dr. Rafiqul Islam", "01755443322", "Ranirbandar Health Complex", "BGB Loan Top-Up", "HIGH", 75, isDemo = true)
-            repository.insertHunting("Tasnim Ara", "01899887766", "Thakurgaon Govt College", "Credit Card Premium", "MEDIUM", 40, isDemo = true)
-            repository.insertHunting("Sajid Hasan", "01555667788", "Nilphamari Bypass", "High-Yield Fixed Deposit", "LOW", 10, isDemo = true)
-            
-            sharedPrefs.edit().putBoolean("database_seeded", true).apply()
-        } else {
-            sharedPrefs.edit().putBoolean("database_seeded", true).apply()
-        }
+        // Dummy data seeding removed to ensure a clean slate
     }
 
     // --- Actions ---
@@ -242,9 +209,312 @@ class BankingViewModel(application: Application) : AndroidViewModel(application)
             if (isDuplicate) {
                 onDuplicate?.invoke()
             } else {
-                repository.insertBankingItem(type, name, acNo, address, phone, dateOverride, remarks)
+                val id = repository.insertBankingItem(type, name, acNo, address, phone, dateOverride, remarks)
+                // Retrieve the inserted item and sync to the cloud excel in the background
+                val received = dateOverride ?: System.currentTimeMillis()
+                val destroy = received + (90L * 24L * 60L * 60L * 1000L)
+                val newItem = BankingItem(
+                    id = id.toInt(),
+                    type = type,
+                    customerName = name.uppercase().trim(),
+                    accountNumber = acNo.trim(),
+                    address = address.uppercase().trim(),
+                    phoneNumber = phone.trim(),
+                    receivedDate = received,
+                    destroyAfter = destroy,
+                    remarks = remarks.uppercase().trim()
+                )
+                sendItemToRemoteExcel(newItem)
                 onSuccess?.invoke()
             }
+        }
+    }
+
+    fun parseDateStringToMillis(dateStr: String?): Long {
+        if (dateStr.isNullOrBlank()) return System.currentTimeMillis()
+        val trimmed = dateStr.trim()
+        val formats = listOf("dd.MM.yyyy", "yyyy-MM-dd", "dd-MM-yyyy", "dd/MM/yyyy", "d/M/yyyy", "d.M.yyyy")
+        for (format in formats) {
+            try {
+                val sdf = SimpleDateFormat(format, Locale.getDefault())
+                sdf.isLenient = false
+                return sdf.parse(trimmed)?.time ?: System.currentTimeMillis()
+            } catch (e: Exception) {
+                // Try next
+            }
+        }
+        // Try parsing as timestamp
+        try {
+            return trimmed.toLong()
+        } catch (e: Exception) {
+            // Ignore
+        }
+        return System.currentTimeMillis()
+    }
+
+    fun sendItemToRemoteExcel(item: BankingItem) {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                // Format: ACCOUNT NUMBER, CUSTOMER NAME, PHONE NUMBER, RECEIVE DATE, ADDRESS, delivered
+                val dateFormat = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
+                val receiveDateStr = dateFormat.format(Date(item.receivedDate))
+                val deliveredStr = if (item.isDelivered) "delivered" else ""
+
+                // Construct Web App or Form parameters
+                val scriptUrl = "https://script.google.com/macros/s/AKfycbz_example_script_id/exec"
+                val queryParams = "accountNumber=${java.net.URLEncoder.encode(item.accountNumber, "UTF-8")}" +
+                        "&customerName=${java.net.URLEncoder.encode(item.customerName, "UTF-8")}" +
+                        "&phoneNumber=${java.net.URLEncoder.encode(item.phoneNumber, "UTF-8")}" +
+                        "&receiveDate=${java.net.URLEncoder.encode(receiveDateStr, "UTF-8")}" +
+                        "&address=${java.net.URLEncoder.encode(item.address, "UTF-8")}" +
+                        "&delivered=${java.net.URLEncoder.encode(deliveredStr, "UTF-8")}" +
+                        "&type=${java.net.URLEncoder.encode(item.type, "UTF-8")}"
+
+                val finalUrl = "$scriptUrl?$queryParams"
+                val connection = java.net.URL(finalUrl).openConnection() as java.net.HttpURLConnection
+                connection.connectTimeout = 5000
+                connection.readTimeout = 5000
+                connection.requestMethod = "GET"
+                
+                val responseCode = connection.responseCode
+                android.util.Log.d("ExcelSync", "Sync manual entry to cloud: $responseCode")
+            } catch (e: Exception) {
+                e.printStackTrace()
+                android.util.Log.e("ExcelSync", "Background Excel sync failed: ${e.localizedMessage}")
+            }
+        }
+    }
+
+    fun syncExistingDataToExcelInBackground() {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                // Get all items in the database
+                val allLocalItems = repository.getAllItems().firstOrNull() ?: emptyList()
+                for (item in allLocalItems) {
+                    if (!item.isDemo) {
+                        sendItemToRemoteExcel(item)
+                        kotlinx.coroutines.delay(300) // gentle delay to prevent congestion
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    private fun parseCsvText(text: String): List<List<String>> {
+        val result = mutableListOf<List<String>>()
+        val lines = text.split("\n")
+        for (line in lines) {
+            if (line.isBlank()) continue
+            val row = mutableListOf<String>()
+            var inQuotes = false
+            val sb = java.lang.StringBuilder()
+            var i = 0
+            while (i < line.length) {
+                val c = line[i]
+                if (c == '\"') {
+                    inQuotes = !inQuotes
+                } else if (c == ',' && !inQuotes) {
+                    row.add(sb.toString().trim())
+                    sb.setLength(0)
+                } else {
+                    sb.append(c)
+                }
+                i++
+            }
+            row.add(sb.toString().trim())
+            val cleanRow = row.map { cell ->
+                var cleaned = cell
+                if (cleaned.startsWith("\"") && cleaned.endsWith("\"") && cleaned.length >= 2) {
+                    cleaned = cleaned.substring(1, cleaned.length - 1)
+                }
+                cleaned.replace("\"\"", "\"")
+            }
+            result.add(cleanRow)
+        }
+        return result
+    }
+
+    fun syncGoogleSheets(
+        type: String,
+        context: android.content.Context,
+        onSuccess: (String) -> Unit,
+        onFailure: (String) -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                val urlString = when (type) {
+                    "DEBIT_CARD" -> "https://docs.google.com/spreadsheets/d/1e_22aHpRoJYBe9J0ohT-PzwHmXGhrOtNlsQeOVHg67M/export?format=csv&gid=0"
+                    "CHEQUE_BOOK" -> "https://docs.google.com/spreadsheets/d/1cakIYc79gR-YVnqKe4-i8J95AEuIKa4Q/export?format=csv&gid=2027095460"
+                    "PIN" -> "https://docs.google.com/spreadsheets/d/1e_22aHpRoJYBe9J0ohT-PzwHmXGhrOtNlsQeOVHg67M/export?format=csv&gid=0"
+                    else -> "https://docs.google.com/spreadsheets/d/1BUc13oZ_qKIBW9OOFtcPAZh9aoELxyVq6sguoAyAdFg/export?format=csv&gid=0"
+                }
+
+                val csvText = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    val connection = java.net.URL(urlString).openConnection() as java.net.HttpURLConnection
+                    connection.connectTimeout = 10000
+                    connection.readTimeout = 10000
+                    connection.requestMethod = "GET"
+                    connection.inputStream.bufferedReader().use { it.readText() }
+                }
+
+                if (csvText.isBlank()) {
+                    onFailure("Spreadsheet is empty or could not be downloaded")
+                    return@launch
+                }
+
+                val parsedRows = parseCsvText(csvText)
+                if (parsedRows.size <= 1) {
+                    onFailure("No records found in spreadsheet")
+                    return@launch
+                }
+
+                var insertedCount = 0
+                var updatedCount = 0
+
+                for (idx in 1 until parsedRows.size) {
+                    val row = parsedRows[idx]
+                    // Format: ACCOUNT NUMBER, CUSTOMER NAME, PHONE NUMBER, RECEIVE DATE, ADDRESS, delivered
+                    val acNo = row.getOrNull(0)?.trim() ?: ""
+                    val name = row.getOrNull(1)?.uppercase()?.trim() ?: ""
+                    val phone = row.getOrNull(2)?.trim() ?: ""
+                    val receiveDateStr = row.getOrNull(3)?.trim() ?: ""
+                    val addressVal = row.getOrNull(4)?.uppercase()?.trim() ?: ""
+                    val deliveryVal = row.getOrNull(5)?.trim()?.lowercase() ?: ""
+
+                    if (name.isBlank() || acNo.isBlank() || name.lowercase().contains("customer") || acNo.lowercase().contains("account")) continue
+
+                    // Check if user previously deleted this item from the app
+                    if (repository.isItemDeleted(type, name, acNo)) {
+                        continue
+                    }
+
+                    val isDeliveredInSheet = deliveryVal.isNotBlank() &&
+                            deliveryVal != "no" &&
+                            deliveryVal != "false" &&
+                            deliveryVal != "pending" &&
+                            deliveryVal != "undelivered" &&
+                            deliveryVal != "none"
+
+                    val existingItem = repository.getDuplicateItem(type, name, acNo)
+                    if (existingItem != null) {
+                        if (!existingItem.isDelivered && isDeliveredInSheet) {
+                            val updatedItem = existingItem.copy(
+                                isDelivered = true,
+                                deliveryDate = System.currentTimeMillis()
+                            )
+                            repository.updateBankingItem(updatedItem)
+                            updatedCount++
+                        }
+                    } else {
+                        val received = parseDateStringToMillis(receiveDateStr)
+                        val destroy = received + (90L * 24L * 60L * 60L * 1000L)
+                        val item = BankingItem(
+                            type = type,
+                            customerName = name,
+                            accountNumber = acNo,
+                            address = addressVal,
+                            phoneNumber = phone,
+                            receivedDate = received,
+                            destroyAfter = destroy,
+                            remarks = "SHEET SYNCED",
+                            isDestroyed = false,
+                            isBalanced = true,
+                            isDelivered = isDeliveredInSheet,
+                            deliveryDate = if (isDeliveredInSheet) received else 0L,
+                            isDemo = false
+                        )
+                        val id = repository.insertBankingItemDirectly(item)
+                        FirebaseSyncHelper.pushToFirebase("banking_items", id.toString(), item.copy(id = id.toInt()))
+                        insertedCount++
+                    }
+                }
+
+                if (insertedCount > 0 || updatedCount > 0) {
+                    onSuccess("Import successful! Imported $insertedCount, Updated $updatedCount items.")
+                } else {
+                    onSuccess("Sync complete. No new or updated items.")
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                onFailure(e.localizedMessage ?: "Unknown network error")
+            }
+        }
+    }
+
+    fun importBulkRows(
+        type: String,
+        parsedRows: List<List<String>>,
+        onCompleted: (inserted: Int, updated: Int) -> Unit
+    ) {
+        viewModelScope.launch {
+            if (parsedRows.isEmpty()) {
+                onCompleted(0, 0)
+                return@launch
+            }
+
+            var insertedCount = 0
+            var updatedCount = 0
+
+            for (idx in 1 until parsedRows.size) {
+                val row = parsedRows[idx]
+                // Format: ACCOUNT NUMBER, CUSTOMER NAME, PHONE NUMBER, RECEIVE DATE, ADDRESS, delivered
+                val acNo = row.getOrNull(0)?.trim() ?: ""
+                val name = row.getOrNull(1)?.uppercase()?.trim() ?: ""
+                val phone = row.getOrNull(2)?.trim() ?: ""
+                val receiveDateStr = row.getOrNull(3)?.trim() ?: ""
+                val addressVal = row.getOrNull(4)?.uppercase()?.trim() ?: ""
+                val deliveryVal = row.getOrNull(5)?.trim()?.lowercase() ?: ""
+
+                if (name.isBlank() || acNo.isBlank() || name.lowercase().contains("customer") || acNo.lowercase().contains("account")) continue
+
+                // Check if user previously deleted this item from the app
+                if (repository.isItemDeleted(type, name, acNo)) {
+                    continue
+                }
+
+                val isDeliveredInSheet = deliveryVal.isNotBlank() &&
+                        deliveryVal != "no" &&
+                        deliveryVal != "false" &&
+                        deliveryVal != "pending" &&
+                        deliveryVal != "undelivered" &&
+                        deliveryVal != "none"
+
+                val existingItem = repository.getDuplicateItem(type, name, acNo)
+                if (existingItem != null) {
+                    if (!existingItem.isDelivered && isDeliveredInSheet) {
+                        val updatedItem = existingItem.copy(
+                            isDelivered = true,
+                            deliveryDate = System.currentTimeMillis()
+                        )
+                        repository.updateBankingItem(updatedItem)
+                        updatedCount++
+                    }
+                } else {
+                    val received = parseDateStringToMillis(receiveDateStr)
+                    val destroy = received + (90L * 24L * 60L * 60L * 1000L)
+                    val item = BankingItem(
+                        type = type,
+                        customerName = name,
+                        accountNumber = acNo,
+                        address = addressVal,
+                        phoneNumber = phone,
+                        receivedDate = received,
+                        destroyAfter = destroy,
+                        remarks = "BULK IMPORTED",
+                        isDestroyed = false,
+                        isBalanced = true,
+                        isDelivered = isDeliveredInSheet,
+                        deliveryDate = if (isDeliveredInSheet) received else 0L,
+                        isDemo = false
+                    )
+                    val id = repository.insertBankingItemDirectly(item)
+                    FirebaseSyncHelper.pushToFirebase("banking_items", id.toString(), item.copy(id = id.toInt()))
+                    insertedCount++
+                }
+            }
+            onCompleted(insertedCount, updatedCount)
         }
     }
 
@@ -268,6 +538,9 @@ class BankingViewModel(application: Application) : AndroidViewModel(application)
     fun deleteBankingItem(item: BankingItem) {
         viewModelScope.launch {
             try {
+                // Keep track of this deleted item so it won't be re-synced from Google Sheets/Excel CSV
+                repository.addDeletedItemTracker(item.type, item.customerName, item.accountNumber)
+                
                 val adapter = moshi.adapter(BankingItem::class.java)
                 val json = adapter.toJson(item)
                 repository.insertRecycleBinItem(

@@ -15,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.ui.text.font.FontWeight
@@ -56,7 +57,8 @@ fun BankingItemScreen(
 
     // Bulk Importer Settings
     var showBulkImportDialog by remember { mutableStateOf(false) }
-    var bulkImportType by remember { mutableStateOf("") } // "EXCEL", "PHOTO", "SHEETS"
+    var bulkImportType by remember { mutableStateOf("") } // "EXCEL", "PHOTO", "SHEETS", "PASTE"
+    var isSyncingSheets by remember { mutableStateOf(false) }
 
     // Local state for Add Form
     var customerName by remember { mutableStateOf("") }
@@ -171,7 +173,7 @@ fun BankingItemScreen(
                     Text("⚡ BULK AUTO-ENTRY OPERATIONS", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = GoldLight)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Button(
                             onClick = {
@@ -183,37 +185,70 @@ fun BankingItemScreen(
                             contentPadding = PaddingValues(vertical = 4.dp),
                             shape = RoundedCornerShape(8.dp)
                         ) {
-                            Icon(Icons.Default.BorderAll, contentDescription = null, modifier = Modifier.size(14.dp), tint = GoldPrimary)
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Excel", fontSize = 11.sp, color = Color.White)
+                            Icon(Icons.Default.BorderAll, contentDescription = null, modifier = Modifier.size(13.dp), tint = GoldPrimary)
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Text("Excel", fontSize = 10.sp, color = Color.White)
                         }
                         Button(
                             onClick = {
                                 bulkImportType = "PHOTO"
                                 showBulkImportDialog = true
                             },
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.weight(1.1f),
                             colors = ButtonDefaults.buttonColors(containerColor = SlateDark),
                             contentPadding = PaddingValues(vertical = 4.dp),
                             shape = RoundedCornerShape(8.dp)
                         ) {
-                            Icon(Icons.Default.PhotoCamera, contentDescription = null, modifier = Modifier.size(14.dp), tint = GoldPrimary)
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Photo OCR", fontSize = 11.sp, color = Color.White)
+                            Icon(Icons.Default.PhotoCamera, contentDescription = null, modifier = Modifier.size(13.dp), tint = GoldPrimary)
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Text("Camera", fontSize = 10.sp, color = Color.White)
                         }
                         Button(
                             onClick = {
-                                bulkImportType = "SHEETS"
-                                showBulkImportDialog = true
+                                if (!isSyncingSheets) {
+                                    isSyncingSheets = true
+                                    android.widget.Toast.makeText(context, "Syncing spreadsheet... Please wait", android.widget.Toast.LENGTH_SHORT).show()
+                                    viewModel.syncGoogleSheets(
+                                        type = itemType,
+                                        context = context,
+                                        onSuccess = { msg ->
+                                            isSyncingSheets = false
+                                            android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
+                                        },
+                                        onFailure = { err ->
+                                            isSyncingSheets = false
+                                            android.widget.Toast.makeText(context, "Sync Error: $err", android.widget.Toast.LENGTH_LONG).show()
+                                        }
+                                    )
+                                }
                             },
-                            modifier = Modifier.weight(1f),
+                            enabled = !isSyncingSheets,
+                            modifier = Modifier.weight(1.2f),
                             colors = ButtonDefaults.buttonColors(containerColor = SlateDark),
                             contentPadding = PaddingValues(vertical = 4.dp),
                             shape = RoundedCornerShape(8.dp)
                         ) {
-                            Icon(Icons.Default.CloudSync, contentDescription = null, modifier = Modifier.size(14.dp), tint = GoldPrimary)
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Sync Sheets", fontSize = 11.sp, color = Color.White)
+                            if (isSyncingSheets) {
+                                CircularProgressIndicator(modifier = Modifier.size(12.dp), color = GoldPrimary, strokeWidth = 1.5.dp)
+                            } else {
+                                Icon(Icons.Default.CloudSync, contentDescription = null, modifier = Modifier.size(13.dp), tint = GoldPrimary)
+                            }
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Text(if (isSyncingSheets) "Syncing..." else "Sheet Sync", fontSize = 10.sp, color = Color.White)
+                        }
+                        Button(
+                            onClick = {
+                                bulkImportType = "PASTE"
+                                showBulkImportDialog = true
+                            },
+                            modifier = Modifier.weight(1.1f),
+                            colors = ButtonDefaults.buttonColors(containerColor = SlateDark),
+                            contentPadding = PaddingValues(vertical = 4.dp),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(Icons.Default.Assignment, contentDescription = null, modifier = Modifier.size(13.dp), tint = GoldPrimary)
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Text("Easy Paste", fontSize = 10.sp, color = Color.White)
                         }
                     }
                     
@@ -493,7 +528,7 @@ fun BankingItemScreen(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                if (tabSelected == 1) {
+                if (tabSelected == 3) {
                     val groupSdf = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
                     val deliveredGroups = deliveredList.groupBy { item ->
                         val date = if (item.deliveryDate > 0L) Date(item.deliveryDate) else Date(item.receivedDate)
@@ -618,30 +653,9 @@ fun BankingItemScreen(
             itemType = itemType,
             importType = bulkImportType,
             onDismiss = { showBulkImportDialog = false },
-            onImportConfirmed = { parsedList ->
-                parsedList.forEach { row ->
-                    val name = row.getOrNull(0)?.uppercase()?.trim() ?: ""
-                    val acNo = row.getOrNull(1)?.trim() ?: ""
-                    val phone = row.getOrNull(2)?.trim() ?: ""
-                    val addressVal = row.getOrNull(3)?.uppercase()?.trim() ?: ""
-
-                    if (name.isNotBlank() && acNo.isNotBlank()) {
-                        // Prevent repeat entry: check if identical spelling and ac number already exists
-                        val isDuplicate = filteredItems.any {
-                            it.customerName.uppercase().trim() == name &&
-                            it.accountNumber.trim() == acNo
-                        }
-                        if (!isDuplicate) {
-                            viewModel.addBankingItem(
-                                type = itemType,
-                                name = name,
-                                acNo = acNo,
-                                address = addressVal,
-                                phone = phone,
-                                remarks = "BULK IMPORTED ($bulkImportType)"
-                            )
-                        }
-                    }
+            onImportConfirmed = { parsedList, onComplete ->
+                viewModel.importBulkRows(itemType, parsedList) { inserted, updated ->
+                    onComplete(inserted, updated)
                 }
             }
         )
@@ -656,6 +670,14 @@ fun BankingItemScreen(
             onDismiss = { showPreviewDialog = false },
             onDownload = {
                 onConfirmDownload()
+            },
+            onDownloadExcel = if (previewHeaders != null && previewRows != null) {
+                {
+                    val excelFileName = previewTitle.replace(" ", "_").lowercase() + ".csv"
+                    com.example.util.ExcelHelper.generateGenericExcel(context, excelFileName, previewHeaders!!, previewRows!!)
+                }
+            } else {
+                null
             }
         )
     }
@@ -738,42 +760,121 @@ fun BankingItemScreen(
     }
 }
 
+private fun parseCsvTextLocal(text: String): List<List<String>> {
+    val result = mutableListOf<List<String>>()
+    val lines = text.split("\n")
+    for (line in lines) {
+        if (line.isBlank()) continue
+        val row = mutableListOf<String>()
+        var inQuotes = false
+        val sb = java.lang.StringBuilder()
+        var i = 0
+        while (i < line.length) {
+            val c = line[i]
+            if (c == '\"') {
+                inQuotes = !inQuotes
+            } else if (c == ',' && !inQuotes) {
+                row.add(sb.toString().trim())
+                sb.setLength(0)
+            } else {
+                sb.append(c)
+            }
+            i++
+        }
+        row.add(sb.toString().trim())
+        val cleanRow = row.map { cell ->
+            var cleaned = cell
+            if (cleaned.startsWith("\"") && cleaned.endsWith("\"") && cleaned.length >= 2) {
+                cleaned = cleaned.substring(1, cleaned.length - 1)
+            }
+            cleaned.replace("\"\"", "\"")
+        }
+        result.add(cleanRow)
+    }
+    return result
+}
+
+private fun getFileName(context: android.content.Context, uri: android.net.Uri): String? {
+    var result: String? = null
+    if (uri.scheme == "content") {
+        val cursor = context.contentResolver.query(uri, null, null, null, null)
+        try {
+            if (cursor != null && cursor.moveToFirst()) {
+                val index = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                if (index >= 0) {
+                    result = cursor.getString(index)
+                }
+            }
+        } finally {
+            cursor?.close()
+        }
+    }
+    if (result == null) {
+        result = uri.path
+        val cut = result?.lastIndexOf('/') ?: -1
+        if (cut != -1) {
+            result = result?.substring(cut + 1)
+        }
+    }
+    return result
+}
+
 @Composable
 fun BulkImportDialog(
     itemType: String,
-    importType: String, // "EXCEL", "PHOTO", "SHEETS"
+    importType: String, // "EXCEL", "PHOTO", "SHEETS", "PASTE"
     onDismiss: () -> Unit,
-    onImportConfirmed: (List<List<String>>) -> Unit
+    onImportConfirmed: (List<List<String>>, onComplete: (inserted: Int, updated: Int) -> Unit) -> Unit
 ) {
     var step by remember { mutableStateOf(1) } // 1 = Input, 2 = Loading, 3 = Success
     var sheetsUrl by remember {
-        mutableStateOf(
-            if (itemType == "CHEQUE_BOOK") {
-                "https://docs.google.com/spreadsheets/d/1cakIYc79gR-YVnqKe4-i8J95AEuIKa4Q/edit?gid=2027095460#gid=2027095460"
-            } else {
-                "https://docs.google.com/spreadsheets/d/1e_22aHpRoJYBe9J0ohT-PzwHmXGhrOtNlsQeOVHg67M/edit?gid=0#gid=0"
-            }
-        )
+        mutableStateOf("https://docs.google.com/spreadsheets/d/1BUc13oZ_qKIBW9OOFtcPAZh9aoELxyVq6sguoAyAdFg/edit?usp=sharing")
     }
     var excelFileSelected by remember { mutableStateOf("No file selected") }
+    var pasteText by remember { mutableStateOf("") }
     var photoCaptured by remember { mutableStateOf(false) }
+    var capturedBitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
+    var extractedRows by remember { mutableStateOf<List<List<String>>>(emptyList()) }
+    var importedCount by remember { mutableStateOf(0) }
+    var updatedCount by remember { mutableStateOf(0) }
 
-    val simulatedResults = when (itemType) {
-        "DEBIT_CARD" -> listOf(
-            listOf("Sharmin Jahan", "1020304050", "01712345678", "Ranirbandar, Dinajpur"),
-            listOf("Md. Abu Bakar", "5060708090", "01787654321", "Dinajpur Town"),
-            listOf("Shahnaj Begum", "3040506070", "01755554444", "Ranirbandar, Dinajpur")
-        )
-        "CHEQUE_BOOK" -> listOf(
-            listOf("Faruk Hossain", "2211445566", "01799998888", "Ranirbandar"),
-            listOf("Dr. Aminul Islam", "8899001122", "01744443333", "Dinajpur Sadar"),
-            listOf("Mst. Rina Begum", "1122334455", "01711112222", "Chirirbandar")
-        )
-        else -> listOf(
-            listOf("Khadiza Khatun", "6655443322", "01722223333", "Ranirbandar"),
-            listOf("Zahid Hasan", "7788992211", "01766667777", "Ranirbandar")
-        )
+    val context = LocalContext.current
+
+    val filePickerLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri: android.net.Uri? ->
+        if (uri != null) {
+            excelFileSelected = getFileName(context, uri) ?: "Selected Spreadsheet"
+            try {
+                val inputStream = context.contentResolver.openInputStream(uri)
+                val textContent = inputStream?.bufferedReader()?.use { it.readText() }
+                if (!textContent.isNullOrBlank()) {
+                    val parsed = parseCsvTextLocal(textContent)
+                    if (parsed.isNotEmpty()) {
+                        extractedRows = parsed
+                    } else {
+                        android.widget.Toast.makeText(context, "No rows found in selected CSV", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                } else {
+                    android.widget.Toast.makeText(context, "Selected file is empty", android.widget.Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                android.widget.Toast.makeText(context, "Error reading file: ${e.localizedMessage}", android.widget.Toast.LENGTH_LONG).show()
+            }
+        }
     }
+
+    val cameraLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.TakePicturePreview()
+    ) { bitmap ->
+        if (bitmap != null) {
+            capturedBitmap = bitmap
+            photoCaptured = true
+        }
+    }
+
+    val simulatedResults = emptyList<List<String>>()
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -782,6 +883,7 @@ fun BulkImportDialog(
                 text = when (importType) {
                     "EXCEL" -> "Excel Spreadsheet Importer"
                     "PHOTO" -> "Photo Document OCR Scanner"
+                    "PASTE" -> "Smart Text Paste Importer"
                     else -> "Google Sheets Live Sync"
                 },
                 fontSize = 16.sp,
@@ -797,161 +899,119 @@ fun BulkImportDialog(
                 if (step == 1) {
                     when (importType) {
                         "EXCEL" -> {
-                            Text("Import bulk records directly from an Excel (.xlsx / .csv) file.", fontSize = 13.sp)
+                            Text("Upload and import a .csv formatted spreadsheet from your device local storage.", fontSize = 12.sp, color = Color.LightGray)
                             Button(
-                                onClick = { excelFileSelected = "chirirbandar_branch_registers_${itemType.lowercase()}.xlsx" },
+                                onClick = { filePickerLauncher.launch("*/*") },
                                 colors = ButtonDefaults.buttonColors(containerColor = SlateDark),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Icon(Icons.Default.UploadFile, contentDescription = null)
+                                Icon(Icons.Default.UploadFile, contentDescription = null, tint = GoldPrimary)
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("Choose Spreadsheet File")
+                                Text("Select Device Spreadsheet (.csv)", color = Color.White)
                             }
                             Text("Selected: $excelFileSelected", fontSize = 12.sp, color = GoldLight, fontWeight = FontWeight.Medium)
+                            if (extractedRows.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text("Extracted ${extractedRows.size} rows successfully!", color = GreenAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                        "PASTE" -> {
+                            Text("Paste raw multi-line records (e.g. from notes, WhatsApp, email). Format: ACCOUNT NUMBER, CUSTOMER NAME, PHONE NUMBER, RECEIVE DATE, ADDRESS, delivered (separated by comma, pipe, tab, or semicolon).", fontSize = 12.sp, color = Color.LightGray)
+                            OutlinedTextField(
+                                value = pasteText,
+                                onValueChange = { 
+                                    pasteText = it
+                                    if (it.isNotBlank()) {
+                                        val lines = it.lines()
+                                        val extracted = mutableListOf<List<String>>()
+                                        // Add header row first
+                                        extracted.add(listOf("ACCOUNT NUMBER", "CUSTOMER NAME", "PHONE NUMBER", "RECEIVE DATE", "ADDRESS", "delivered"))
+                                        for (line in lines) {
+                                            if (line.isBlank()) continue
+                                            val parts = line.split(Regex("[,|;\t]")).map { it.trim() }
+                                            if (parts.size >= 2) {
+                                                val acNo = parts.getOrNull(0) ?: ""
+                                                val name = parts.getOrNull(1) ?: ""
+                                                val phone = parts.getOrNull(2) ?: ""
+                                                val rcvDate = parts.getOrNull(3) ?: ""
+                                                val addr = parts.getOrNull(4) ?: ""
+                                                val dlv = parts.getOrNull(5) ?: ""
+                                                extracted.add(listOf(acNo, name, phone, rcvDate, addr, dlv))
+                                            }
+                                        }
+                                        extractedRows = extracted
+                                    } else {
+                                        extractedRows = emptyList()
+                                    }
+                                },
+                                label = { Text("Paste Text Area") },
+                                placeholder = { Text("1234567890, Toufiq, 01712345678, 18.07.2026, Dinajpur, delivered") },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(130.dp),
+                                maxLines = 10
+                            )
+                            if (extractedRows.isNotEmpty()) {
+                                Text("Extracted ${extractedRows.size - 1} records!", color = GreenAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
                         }
                         "PHOTO" -> {
-                            Text("Take a photo of a printed list, delivery register, or courier book. The built-in AI will scan and parse names and account numbers.", fontSize = 13.sp)
+                            Text("Use the device camera to photograph printed ledger registers or courier lists. The document values will be extracted and previewed below.", fontSize = 12.sp, color = Color.LightGray)
+                            Spacer(modifier = Modifier.height(8.dp))
                             if (!photoCaptured) {
-                                var isFlashOn by remember { mutableStateOf(false) }
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(200.dp)
-                                        .background(Color.Black, RoundedCornerShape(12.dp))
-                                        .padding(4.dp)
+                                Button(
+                                    onClick = { cameraLauncher.launch(null) },
+                                    colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary, contentColor = SlateDark),
+                                    modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    // Bounding corners and scanlines simulation
-                                    androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
-                                        val w = size.width
-                                        val h = size.height
-                                        val lineLen = 30f
-                                        val strokeW = 4f
-                                        val col = GoldPrimary
-                                        
-                                        // Top Left
-                                        drawLine(col, androidx.compose.ui.geometry.Offset(0f, 0f), androidx.compose.ui.geometry.Offset(lineLen, 0f), strokeWidth = strokeW)
-                                        drawLine(col, androidx.compose.ui.geometry.Offset(0f, 0f), androidx.compose.ui.geometry.Offset(0f, lineLen), strokeWidth = strokeW)
-                                        
-                                        // Top Right
-                                        drawLine(col, androidx.compose.ui.geometry.Offset(w, 0f), androidx.compose.ui.geometry.Offset(w - lineLen, 0f), strokeWidth = strokeW)
-                                        drawLine(col, androidx.compose.ui.geometry.Offset(w, 0f), androidx.compose.ui.geometry.Offset(w, lineLen), strokeWidth = strokeW)
-                                        
-                                        // Bottom Left
-                                        drawLine(col, androidx.compose.ui.geometry.Offset(0f, h), androidx.compose.ui.geometry.Offset(lineLen, h), strokeWidth = strokeW)
-                                        drawLine(col, androidx.compose.ui.geometry.Offset(0f, h), androidx.compose.ui.geometry.Offset(0f, h - lineLen), strokeWidth = strokeW)
-                                        
-                                        // Bottom Right
-                                        drawLine(col, androidx.compose.ui.geometry.Offset(w, h), androidx.compose.ui.geometry.Offset(w - lineLen, h), strokeWidth = strokeW)
-                                        drawLine(col, androidx.compose.ui.geometry.Offset(w, h), androidx.compose.ui.geometry.Offset(w, h - lineLen), strokeWidth = strokeW)
-                                    }
-
-                                    // Camera Overlay Content (Mock text to scan)
-                                    Column(
-                                        modifier = Modifier
-                                            .align(Alignment.Center)
-                                            .padding(16.dp),
-                                        horizontalAlignment = Alignment.CenterHorizontally,
-                                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                                    ) {
-                                        Text("[ CHIRIRBANDAR BRANCH REGISTER SHEET ]", color = Color.White.copy(alpha = 0.3f), fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                        Text("1. Sharmin Jahan  | A/C 1020304050", color = Color.White.copy(alpha = 0.4f), fontSize = 11.sp)
-                                        Text("2. Abu Bakar          | A/C 5060708090", color = Color.White.copy(alpha = 0.4f), fontSize = 11.sp)
-                                        Text("3. Shahnaj Begum  | A/C 3040506070", color = Color.White.copy(alpha = 0.4f), fontSize = 11.sp)
-                                    }
-
-                                    // Blinking REC Indicator
+                                    Icon(Icons.Default.CameraAlt, contentDescription = "Back Camera")
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Open Back Camera & Click Photo", fontWeight = FontWeight.Bold)
+                                }
+                            } else {
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                     Row(
-                                        modifier = Modifier
-                                            .align(Alignment.TopStart)
-                                            .padding(8.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(6.dp)
-                                                .background(Color.Red, RoundedCornerShape(3.dp))
-                                        )
-                                        Text("LIVE 1080P", color = Color.Red, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                        Text("Captured Document:", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = GoldPrimary)
+                                        TextButton(
+                                            onClick = {
+                                                photoCaptured = false
+                                                capturedBitmap = null
+                                            },
+                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                        ) {
+                                            Icon(Icons.Default.Refresh, contentDescription = "Retake", modifier = Modifier.size(14.dp), tint = GoldLight)
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("Retake Photo", fontSize = 11.sp, color = GoldLight)
+                                        }
                                     }
 
-                                    // Flash trigger button in viewfinder
-                                    IconButton(
-                                        onClick = { isFlashOn = !isFlashOn },
-                                        modifier = Modifier
-                                            .align(Alignment.TopEnd)
-                                            .padding(4.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.FlashOn,
-                                            contentDescription = "Flash",
-                                            tint = if (isFlashOn) GoldPrimary else Color.White
-                                        )
-                                    }
-
-                                    // Shutter capture trigger
-                                    Box(
-                                        modifier = Modifier
-                                            .align(Alignment.BottomCenter)
-                                            .padding(bottom = 12.dp)
-                                            .size(44.dp)
-                                            .background(Color.White, RoundedCornerShape(22.dp))
-                                            .clickable { photoCaptured = true },
-                                        contentAlignment = Alignment.Center
-                                    ) {
+                                    // Display captured photo bitmap if available
+                                    capturedBitmap?.let { bitmap ->
                                         Box(
                                             modifier = Modifier
-                                                .size(36.dp)
-                                                .background(Color.Black, RoundedCornerShape(18.dp)),
+                                                .fillMaxWidth()
+                                                .height(130.dp)
+                                                .background(Color.Black, RoundedCornerShape(8.dp)),
                                             contentAlignment = Alignment.Center
                                         ) {
-                                            Box(
+                                            androidx.compose.foundation.Image(
+                                                bitmap = bitmap.asImageBitmap(),
+                                                contentDescription = "Captured Document Photo",
                                                 modifier = Modifier
-                                                    .size(28.dp)
-                                                    .background(GoldPrimary, RoundedCornerShape(14.dp))
+                                                    .fillMaxHeight()
+                                                    .padding(4.dp),
+                                                contentScale = androidx.compose.ui.layout.ContentScale.Fit
                                             )
                                         }
                                     }
                                 }
-                            } else {
-                                // Photo Captured view with scanning animation overlay!
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(200.dp)
-                                        .background(SlateDark, RoundedCornerShape(12.dp)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Column(
-                                        horizontalAlignment = Alignment.CenterHorizontally,
-                                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(48.dp), tint = GoldPrimary)
-                                        Text("smartbanking_register_document.jpg", color = Color.Gray, fontSize = 11.sp)
-                                        Row(
-                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = GreenAccent, modifier = Modifier.size(14.dp))
-                                            Text("Document ready for OCR scanning", color = GreenAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                        }
-                                    }
-                                    
-                                    // Retake button
-                                    Button(
-                                        onClick = { photoCaptured = false },
-                                        colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.15f), contentColor = Color.White),
-                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                                        modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp)
-                                    ) {
-                                        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(12.dp))
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text("Retake", fontSize = 10.sp)
-                                    }
-                                }
                             }
                         }
-                        "SHEETS" -> {
+                        else -> {
                             Text("Synchronize registers in real time from a shared Google Sheets spreadsheet.", fontSize = 13.sp)
                             OutlinedTextField(
                                 value = sheetsUrl,
@@ -963,6 +1023,43 @@ fun BulkImportDialog(
                             )
                         }
                     }
+
+                    // Preview Extracted Data Section
+                    HorizontalDivider(color = Color.Gray.copy(alpha = 0.2f), thickness = 1.dp)
+                    Text("Data Preview:", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = GoldPrimary)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFF131922), RoundedCornerShape(8.dp))
+                            .padding(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        // Header
+                        Row(modifier = Modifier.fillMaxWidth().background(Color.Black.copy(alpha = 0.5f)).padding(4.dp)) {
+                            Text("A/C Number", modifier = Modifier.weight(1.1f), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            Text("Customer Name", modifier = Modifier.weight(1.2f), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            Text("Phone", modifier = Modifier.weight(1f), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            Text("Address", modifier = Modifier.weight(1f), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        }
+                        // Rows
+                        val previewList = if (extractedRows.isNotEmpty()) {
+                            extractedRows.drop(1).take(4)
+                        } else {
+                            emptyList()
+                        }
+                        if (previewList.isEmpty()) {
+                            Text("No records to preview. Please upload or paste data in standard format.", color = Color.Gray, fontSize = 11.sp, modifier = Modifier.padding(4.dp))
+                        } else {
+                            previewList.forEach { row ->
+                                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp)) {
+                                    Text(row.getOrNull(0) ?: "", modifier = Modifier.weight(1.1f), fontSize = 10.sp, color = Color.LightGray)
+                                    Text(row.getOrNull(1)?.uppercase() ?: "", modifier = Modifier.weight(1.2f), fontSize = 10.sp, color = Color.LightGray)
+                                    Text(row.getOrNull(2) ?: "", modifier = Modifier.weight(1f), fontSize = 10.sp, color = Color.LightGray)
+                                    Text(row.getOrNull(4)?.uppercase() ?: "", modifier = Modifier.weight(1f), fontSize = 10.sp, color = Color.LightGray)
+                                }
+                            }
+                        }
+                    }
                 } else if (step == 2) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -972,8 +1069,9 @@ fun BulkImportDialog(
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
                             text = when (importType) {
-                                "EXCEL" -> "Parsing spreadsheet rows..."
+                                "EXCEL" -> "Parsing local spreadsheet rows..."
                                 "PHOTO" -> "AI analyzing text values..."
+                                "PASTE" -> "Extracting values from text block..."
                                 else -> "Connecting to Google API nodes..."
                             },
                             fontSize = 13.sp,
@@ -988,7 +1086,18 @@ fun BulkImportDialog(
                         Icon(Icons.Default.CheckCircle, contentDescription = "Success", modifier = Modifier.size(48.dp), tint = GreenAccent)
                         Spacer(modifier = Modifier.height(8.dp))
                         Text("Import Successful!", fontWeight = FontWeight.Bold, color = Color.White)
-                        Text("Successfully parsed and synced ${simulatedResults.size} records into local SQLite database.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f), textAlign = TextAlign.Center)
+                        Text("Successfully parsed and synced records into local SQLite database.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f), textAlign = TextAlign.Center)
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = SlateDark),
+                            shape = RoundedCornerShape(6.dp),
+                            modifier = Modifier.padding(horizontal = 8.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("New Items Inserted: $importedCount", fontSize = 12.sp, color = GoldLight, fontWeight = FontWeight.Bold)
+                                Text("Existing Items Updated: $updatedCount", fontSize = 12.sp, color = Color.White)
+                            }
+                        }
                     }
                 }
             }
@@ -998,6 +1107,7 @@ fun BulkImportDialog(
                 val isEnabled = when (importType) {
                     "PHOTO" -> photoCaptured
                     "EXCEL" -> excelFileSelected != "No file selected"
+                    "PASTE" -> pasteText.isNotBlank() && extractedRows.size > 1
                     "SHEETS" -> sheetsUrl.isNotBlank()
                     else -> true
                 }
@@ -1035,9 +1145,13 @@ fun BulkImportDialog(
 
     if (step == 2) {
         LaunchedEffect(Unit) {
-            kotlinx.coroutines.delay(2000)
-            onImportConfirmed(simulatedResults)
-            step = 3
+            kotlinx.coroutines.delay(1500)
+            val listToImport = extractedRows
+            onImportConfirmed(listToImport) { inserted, updated ->
+                importedCount = inserted
+                updatedCount = updated
+                step = 3
+            }
         }
     }
 }

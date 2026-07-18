@@ -385,6 +385,10 @@ class BankingRepository(private val bankingDao: BankingDao) {
         return bankingDao.checkDuplicateItem(type, name.uppercase().trim(), accountNumber.trim()) != null
     }
 
+    suspend fun getDuplicateItem(type: String, name: String, accountNumber: String): BankingItem? {
+        return bankingDao.checkDuplicateItem(type, name.uppercase().trim(), accountNumber.trim())
+    }
+
     suspend fun clearAllDemoData() {
         bankingDao.clearDemoBankingItems()
         bankingDao.clearDemoTodoTasks()
@@ -402,5 +406,18 @@ class BankingRepository(private val bankingDao: BankingDao) {
         bankingDao.clearLettersIssued()
         bankingDao.clearRecycleBin()
         bankingDao.clearPasswordHistory()
+    }
+
+    suspend fun addDeletedItemTracker(type: String, customerName: String, accountNumber: String) {
+        val tracker = DeletedItemTracker(
+            type = type,
+            customerName = customerName.uppercase().trim(),
+            accountNumber = accountNumber.trim()
+        )
+        bankingDao.insertDeletedItemTracker(tracker)
+    }
+
+    suspend fun isItemDeleted(type: String, customerName: String, accountNumber: String): Boolean {
+        return bankingDao.findDeletedItem(type, customerName.uppercase().trim(), accountNumber.trim()) != null
     }
 }

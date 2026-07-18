@@ -31,7 +31,8 @@ fun PdfPreviewDialog(
     rows: List<List<String>>? = null,
     textContent: String? = null,
     onDismiss: () -> Unit,
-    onDownload: () -> Unit
+    onDownload: () -> Unit,
+    onDownloadExcel: (() -> Unit)? = null
 ) {
     Dialog(
         onDismissRequest = onDismiss,
@@ -100,7 +101,7 @@ fun PdfPreviewDialog(
                                     .background(Color.Black)
                                     .padding(vertical = 8.dp)
                             ) {
-                                headers.forEachIndexed { index, header ->
+                                headers.forEach { header ->
                                     Text(
                                         text = header,
                                         fontSize = 11.sp,
@@ -123,7 +124,7 @@ fun PdfPreviewDialog(
                                         modifier = Modifier
                                             .padding(vertical = 8.dp)
                                     ) {
-                                        row.forEachIndexed { colIndex, cell ->
+                                        row.forEach { cell ->
                                             Text(
                                                 text = cell,
                                                 fontSize = 11.sp,
@@ -171,31 +172,62 @@ fun PdfPreviewDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Review completed, proceed to download?",
+                        text = "Choose download format:",
                         fontSize = 11.sp,
                         color = Color.LightGray
                     )
 
-                    Button(
-                        onClick = {
-                            onDownload()
-                            onDismiss()
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary, contentColor = SlateDark),
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Download,
-                            contentDescription = "Download Icon",
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "Download PDF",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                        // PDF Download Button
+                        Button(
+                            onClick = {
+                                onDownload()
+                                onDismiss()
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = SlateSecondary, contentColor = Color.White),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Download,
+                                contentDescription = "PDF Icon",
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "PDF",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        // Excel Download Button
+                        if (onDownloadExcel != null) {
+                            Button(
+                                onClick = {
+                                    onDownloadExcel()
+                                    onDismiss()
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary, contentColor = SlateDark),
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Download,
+                                    contentDescription = "Excel Icon",
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "Excel",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
                     }
                 }
             }

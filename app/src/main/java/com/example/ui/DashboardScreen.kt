@@ -173,7 +173,6 @@ fun DashboardScreen(
             IconButton(
                 onClick = {
                     val activeDebitList = items.filter { it.type == "DEBIT_CARD" && !it.isDelivered && !it.isDestroyed }
-                    val activePinList = items.filter { it.type == "PIN" && !it.isDelivered && !it.isDestroyed }
                     val activeDpsList = items.filter { it.type == "DPS" && !it.isDelivered && !it.isDestroyed }
                     val activeChequeList = items.filter { it.type == "CHEQUE_BOOK" && !it.isDelivered && !it.isDestroyed }
 
@@ -200,16 +199,6 @@ fun DashboardScreen(
                             appendLine("No active debit cards.")
                         } else {
                             activeDebitList.forEachIndexed { idx, item ->
-                                appendLine("${idx + 1}. Name: ${item.customerName} | A/C: ${item.accountNumber} | Phone: ${item.phoneNumber}")
-                            }
-                        }
-                        appendLine()
-                        
-                        appendLine("--- ACTIVE PINS (${activePinList.size}) ---")
-                        if (activePinList.isEmpty()) {
-                            appendLine("No active PINs.")
-                        } else {
-                            activePinList.forEachIndexed { idx, item ->
                                 appendLine("${idx + 1}. Name: ${item.customerName} | A/C: ${item.accountNumber} | Phone: ${item.phoneNumber}")
                             }
                         }
@@ -362,10 +351,10 @@ fun DashboardScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                // ATM Replenishment Navigation
+                // ATM Replenishment Navigation - Reduced weight for smaller relative size
                 Card(
                     modifier = Modifier
-                        .weight(1f)
+                        .weight(0.8f)
                         .clickable { onNavigate("atm_calc") },
                     colors = CardDefaults.cardColors(containerColor = SlateDark),
                     shape = RoundedCornerShape(10.dp)
@@ -376,24 +365,24 @@ fun DashboardScreen(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(36.dp)
+                                .size(32.dp)
                                 .background(GoldPrimary.copy(alpha = 0.15f), RoundedCornerShape(8.dp)),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(Icons.Default.LocalAtm, contentDescription = null, tint = GoldPrimary, modifier = Modifier.size(18.dp))
+                            Icon(Icons.Default.LocalAtm, contentDescription = null, tint = GoldPrimary, modifier = Modifier.size(16.dp))
                         }
-                        Spacer(modifier = Modifier.width(10.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
                         Column {
-                            Text("ATM REPLENISHMENT", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = Color.White)
-                            Text("Replenishment Calc", fontSize = 10.sp, color = Color.LightGray)
+                            Text("ATM REPLENISH", fontWeight = FontWeight.Bold, fontSize = 10.sp, color = Color.White)
+                            Text("Replenishment", fontSize = 9.sp, color = Color.LightGray)
                         }
                     }
                 }
 
-                // Customer Hunting Navigation
+                // Customer Hunting Navigation - Increased weight for larger relative size
                 Card(
                     modifier = Modifier
-                        .weight(1f)
+                        .weight(1.2f)
                         .clickable { onNavigate("hunting") },
                     colors = CardDefaults.cardColors(containerColor = SlateDark),
                     shape = RoundedCornerShape(10.dp)
@@ -408,7 +397,7 @@ fun DashboardScreen(
                                 .background(GreenAccent.copy(alpha = 0.15f), RoundedCornerShape(8.dp)),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(Icons.Default.Groups, contentDescription = null, tint = GreenAccent, modifier = Modifier.size(18.dp))
+                            Icon(Icons.Default.Groups, contentDescription = null, tint = GreenAccent, modifier = Modifier.size(20.dp))
                         }
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {

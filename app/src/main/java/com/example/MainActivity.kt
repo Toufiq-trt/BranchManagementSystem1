@@ -318,6 +318,8 @@ fun UniversalSearchResultsView(viewModel: BankingViewModel) {
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(results) { res ->
+                    val item = res.originalItem
+                    val context = LocalContext.current
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -336,11 +338,13 @@ fun UniversalSearchResultsView(viewModel: BankingViewModel) {
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
+                            // Header with Name & Module Type
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(res.title, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                Text(res.title, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color.White)
                                 Box(
                                     modifier = Modifier
                                         .background(GoldPrimary.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
@@ -349,50 +353,100 @@ fun UniversalSearchResultsView(viewModel: BankingViewModel) {
                                     Text(res.moduleType, fontSize = 9.sp, color = GoldPrimary, fontWeight = FontWeight.Bold)
                                 }
                             }
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(res.subtitle, fontSize = 12.sp)
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text("Date: ${res.receivedDate}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
-                                Text("Status: ${res.status}", fontSize = 11.sp, color = GreenAccent, fontWeight = FontWeight.Bold)
-                            }
+                            
+                            Spacer(modifier = Modifier.height(6.dp))
 
-                            if (res.originalItem != null) {
-                                val item = res.originalItem
-                                val context = LocalContext.current
+                            if (item != null) {
+                                // Staying Days calculation
+                                val now = System.currentTimeMillis()
+                                val stayingDays = ((now - item.receivedDate) / (1000L * 3600 * 24)).coerceAtLeast(0)
+                                val destroyDateStr = SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(item.destroyAfter))
+
+                                // Display Specific Fields
+                                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                    Text("Account No: ${item.accountNumber}", fontSize = 12.sp, color = Color.LightGray)
+                                    Text("Phone Number: ${item.phoneNumber}", fontSize = 12.sp, color = Color.LightGray)
+                                    Text("Address: ${item.address}", fontSize = 12.sp, color = Color.LightGray)
+                                    Text("Received Date: ${res.receivedDate}", fontSize = 12.sp, color = Color.LightGray)
+                                    Text("Staying Days: $stayingDays days in vault", fontSize = 12.sp, color = GoldLight, fontWeight = FontWeight.Bold)
+                                }
+
                                 Spacer(modifier = Modifier.height(8.dp))
+
+                                // Deliver/Destroy Option row or Status
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.End,
+                                    horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    if (!item.isDelivered) {
-                                        Button(
-                                            onClick = {
-                                                viewModel.markAsDelivered(item)
-                                                Toast.makeText(context, "Successfully Delivered!", Toast.LENGTH_SHORT).show()
-                                            },
-                                            colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary, contentColor = SlateDark),
-                                            shape = RoundedCornerShape(6.dp),
-                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
-                                            modifier = Modifier.height(28.dp)
-                                        ) {
-                                            Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(12.dp))
-                                            Spacer(modifier = Modifier.width(4.dp))
-                                            Text("Deliver", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    // Status info
+                                    when {
+                                        item.isDestroyed -> {
+                                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                Icon(Icons.Default.DeleteForever, contentDescription = null, tint = RedAccent, modifier = Modifier.size(16.dp))
+                                                Text("DESTROYED on $destroyDateStr", fontSize = 12.sp, color = RedAccent, fontWeight = FontWeight.Bold)
+                                            }
                                         }
-                                    } else {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                        ) {
-                                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = GreenAccent, modifier = Modifier.size(14.dp))
-                                            Text("Delivered", fontSize = 11.sp, color = GreenAccent, fontWeight = FontWeight.Bold)
+                                        item.isDelivered -> {
+                                            val deliveryDateStr = if (item.deliveryDate > 0) {
+                                                SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(item.deliveryDate))
+                                            } else {
+                                                "N/A"
+                                            }
+                                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                Icon(Icons.Default.CheckCircle, contentDescription = null, tint = GreenAccent, modifier = Modifier.size(16.dp))
+                                                Text("Delivered on $deliveryDateStr", fontSize = 12.sp, color = GreenAccent, fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+                                        else -> {
+                                            Text("Status: Active/Pending", fontSize = 12.sp, color = GreenAccent, fontWeight = FontWeight.Bold)
+                                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                                // Destroy action
+                                                Button(
+                                                    onClick = {
+                                                        viewModel.updateBankingItem(item.copy(isDestroyed = true))
+                                                        Toast.makeText(context, "Successfully Destroyed/Expired!", Toast.LENGTH_SHORT).show()
+                                                    },
+                                                    colors = ButtonDefaults.buttonColors(containerColor = RedAccent, contentColor = Color.White),
+                                                    shape = RoundedCornerShape(6.dp),
+                                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                                                    modifier = Modifier.height(28.dp)
+                                                ) {
+                                                    Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(12.dp))
+                                                    Spacer(modifier = Modifier.width(4.dp))
+                                                    Text("Destroy", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                                }
+
+                                                // Deliver action
+                                                Button(
+                                                    onClick = {
+                                                        viewModel.markAsDelivered(item)
+                                                        Toast.makeText(context, "Successfully Delivered!", Toast.LENGTH_SHORT).show()
+                                                    },
+                                                    colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary, contentColor = SlateDark),
+                                                    shape = RoundedCornerShape(6.dp),
+                                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                                                    modifier = Modifier.height(28.dp)
+                                                ) {
+                                                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(12.dp))
+                                                    Spacer(modifier = Modifier.width(4.dp))
+                                                    Text("Deliver", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                                }
+                                            }
                                         }
                                     }
+                                }
+                            } else {
+                                // Customer hunting lead / Saved form search details
+                                Text(res.subtitle, fontSize = 12.sp, color = Color.LightGray)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("Date: ${res.receivedDate}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+                                    Text("Status: ${res.status}", fontSize = 11.sp, color = GreenAccent, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
