@@ -1,6 +1,6 @@
 {
-  "versionCode": 23,
-  "versionName": "1.23",
+  "versionCode": 26,
+  "versionName": "1.26",
   "apkUrl": "https://raw.githubusercontent.com/Toufiq-trt/BranchManagementSystem1/main/ToufiqBranch.apk",
-  "releaseNotes": "Added full Recycle Bin module to restore deleted items, fixed active item counts on the Dashboard, updated 'ATM Replenishment' and 'Customer Findings' branding, and configured branch-wide active reports sharing."
+  "releaseNotes": "Fixed startup crash by disabling R8/ProGuard class minification and ensured complete compatibility with all devices."
 }
