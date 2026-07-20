@@ -74,21 +74,21 @@ fun BankingItemScreen(
     // Filter items based on selected tab and search
     val now = System.currentTimeMillis()
     
-    // Active (Balancing): Received less than 30 days ago, not delivered and not destroyed
+    // Active (Balancing): ALL undelivered and undestroyed items
     val activeList = filteredItems.filter { 
-        !it.isDelivered && !it.isDestroyed && ((now - it.receivedDate) / (1000L * 3600 * 24) < 30) 
+        !it.isDelivered && !it.isDestroyed
     }
     
-    // 30 Days Completed: Received between 30 and 90 days ago, not delivered and not destroyed
+    // 30 Days Completed: All undelivered and undestroyed items that crossed 30 days
     val crossedList = filteredItems.filter { 
         !it.isDelivered && !it.isDestroyed && 
-        ((now - it.receivedDate) / (1000L * 3600 * 24) >= 30) && 
-        ((now - it.receivedDate) / (1000L * 3600 * 24) < 90) 
+        ((now - it.receivedDate) / (1000L * 3600 * 24) >= 30)
     }
     
-    // 90 Days Completed: Received 90 days or more ago, not delivered and not destroyed
+    // 90 Days Completed: All undelivered and undestroyed items that crossed 90 days
     val completedList = filteredItems.filter { 
-        !it.isDelivered && !it.isDestroyed && ((now - it.receivedDate) / (1000L * 3600 * 24) >= 90) 
+        !it.isDelivered && !it.isDestroyed && 
+        ((now - it.receivedDate) / (1000L * 3600 * 24) >= 90) 
     }
     
     // Delivered List: All delivered items
@@ -444,8 +444,8 @@ fun BankingItemScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             val labelText = when (tabSelected) {
-                0 -> "Active Balancing Records (<30 Days)"
-                1 -> "30 Days Completed Records (30-90 Days)"
+                0 -> "Active Balancing Records (All Undelivered)"
+                1 -> "30 Days Completed Records (>=30 Days)"
                 2 -> "90 Days Completed Records (>=90 Days)"
                 3 -> "Delivered Log"
                 else -> "Destruction Registry"
@@ -513,7 +513,7 @@ fun BankingItemScreen(
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = when (tabSelected) {
-                            0 -> "No active items in balancing (<30 days)."
+                            0 -> "No active items in balancing."
                             1 -> "No 30 days completed items found."
                             2 -> "No 90 days completed items found."
                             3 -> "No delivered items logged."
@@ -599,11 +599,16 @@ fun BankingItemScreen(
                                         now = now,
                                         showDeleteButton = viewModel.isLoggedIn && viewModel.currentUser?.isToufiq == true,
                                         showDeliveryButton = viewModel.isLoggedIn,
+                                        showMailedButton = viewModel.isLoggedIn && tabSelected == 1,
+                                        showDestructionButton = viewModel.isLoggedIn && tabSelected == 2,
                                         onMarkDelivered = {
                                             viewModel.markAsDelivered(item)
                                         },
                                         onMarkDestroyed = {
                                             viewModel.updateBankingItem(item.copy(isDestroyed = true))
+                                        },
+                                        onMarkMailed = {
+                                            viewModel.markAsLetterIssued(item)
                                         },
                                         onDelete = {
                                             viewModel.deleteBankingItem(item)
@@ -626,11 +631,16 @@ fun BankingItemScreen(
                             now = now,
                             showDeleteButton = viewModel.isLoggedIn && viewModel.currentUser?.isToufiq == true,
                             showDeliveryButton = viewModel.isLoggedIn,
+                            showMailedButton = viewModel.isLoggedIn && tabSelected == 1,
+                            showDestructionButton = viewModel.isLoggedIn && tabSelected == 2,
                             onMarkDelivered = {
                                 viewModel.markAsDelivered(item)
                             },
                             onMarkDestroyed = {
                                 viewModel.updateBankingItem(item.copy(isDestroyed = true))
+                            },
+                            onMarkMailed = {
+                                viewModel.markAsLetterIssued(item)
                             },
                             onDelete = {
                                 viewModel.deleteBankingItem(item)
@@ -1162,8 +1172,11 @@ fun BankingItemRow(
     now: Long,
     showDeleteButton: Boolean,
     showDeliveryButton: Boolean,
+    showMailedButton: Boolean = false,
+    showDestructionButton: Boolean = false,
     onMarkDelivered: () -> Unit,
     onMarkDestroyed: () -> Unit,
+    onMarkMailed: (() -> Unit)? = null,
     onDelete: () -> Unit,
     onUndoDelivery: (() -> Unit)? = null,
     onEdit: (() -> Unit)? = null
@@ -1189,27 +1202,47 @@ fun BankingItemRow(
                     Text(text = "A/C: ${item.accountNumber}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
                 }
 
-                // Balance status badge
-                Box(
-                    modifier = Modifier
-                        .background(
-                            if (item.isDelivered) GoldPrimary.copy(alpha = 0.15f)
-                            else if (item.isDestroyed) RedAccent.copy(alpha = 0.15f)
-                            else if (daysLeft > 10) GreenAccent.copy(alpha = 0.15f)
-                            else RedAccent.copy(alpha = 0.15f),
-                            RoundedCornerShape(6.dp)
-                        )
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = if (item.isDelivered) "DELIVERED"
-                               else if (item.isDestroyed) "DESTRUCTED"
-                               else if (daysLeft > 0) "BALANCED: $daysLeft Days Left"
-                               else "90 DAYS COMPLETE",
-                        color = if (item.isDelivered) GoldPrimary else if (item.isDestroyed) RedAccent else if (daysLeft > 10) GreenAccent else RedAccent,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    if (item.isLetterIssued) {
+                        Box(
+                            modifier = Modifier
+                                .background(Color.Blue.copy(alpha = 0.15f), RoundedCornerShape(6.dp))
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = "LETTER ISSUED",
+                                color = Color(0xFF64B5F6),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    // Balance status badge
+                    Box(
+                        modifier = Modifier
+                            .background(
+                                if (item.isDelivered) GoldPrimary.copy(alpha = 0.15f)
+                                else if (item.isDestroyed) RedAccent.copy(alpha = 0.15f)
+                                else if (daysLeft > 10) GreenAccent.copy(alpha = 0.15f)
+                                else RedAccent.copy(alpha = 0.15f),
+                                RoundedCornerShape(6.dp)
+                            )
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = if (item.isDelivered) "DELIVERED"
+                                   else if (item.isDestroyed) "DESTRUCTED"
+                                   else if (daysLeft > 0) "BALANCED: $daysLeft Days Left"
+                                   else "90 DAYS COMPLETE",
+                            color = if (item.isDelivered) GoldPrimary else if (item.isDestroyed) RedAccent else if (daysLeft > 10) GreenAccent else RedAccent,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
 
@@ -1253,6 +1286,20 @@ fun BankingItemRow(
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                if (showMailedButton && !item.isDelivered && !item.isDestroyed && !item.isLetterIssued && onMarkMailed != null) {
+                    Button(
+                        onClick = onMarkMailed,
+                        colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary.copy(alpha = 0.8f), contentColor = SlateDark),
+                        shape = RoundedCornerShape(6.dp),
+                        modifier = Modifier.padding(end = 8.dp).testTag("mail_button"),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                    ) {
+                        Icon(imageVector = Icons.Default.Email, contentDescription = "Mail", modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Mailed", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+
                 if (showDeliveryButton && !item.isDelivered && !item.isDestroyed) {
                     Button(
                         onClick = onMarkDelivered,
@@ -1267,7 +1314,7 @@ fun BankingItemRow(
                     }
                 }
 
-                if (!item.isDelivered && !item.isDestroyed && daysLeft <= 0) {
+                if ((showDestructionButton || daysLeft <= 0) && !item.isDelivered && !item.isDestroyed) {
                     Button(
                         onClick = onMarkDestroyed,
                         colors = ButtonDefaults.buttonColors(containerColor = RedAccent, contentColor = Color.White),

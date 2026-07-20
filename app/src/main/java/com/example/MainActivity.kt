@@ -91,6 +91,7 @@ fun MainContainer(viewModel: BankingViewModel) {
     } else {
         ModalNavigationDrawer(
             drawerState = drawerState,
+            gesturesEnabled = (viewModel.currentScreen == "dashboard"),
             drawerContent = {
                 ModalDrawerSheet(
                     drawerContainerColor = MaterialTheme.colorScheme.surface,
@@ -204,8 +205,24 @@ fun MainContainer(viewModel: BankingViewModel) {
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                                    Icon(Icons.Default.Menu, contentDescription = "Menu")
+                                if (viewModel.currentScreen == "dashboard") {
+                                    IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                                        Icon(Icons.Default.Menu, contentDescription = "Menu")
+                                    }
+                                } else {
+                                    IconButton(onClick = {
+                                        if (viewModel.searchQuery.isNotBlank()) {
+                                            viewModel.searchQuery = ""
+                                        } else {
+                                            viewModel.currentScreen = "dashboard"
+                                        }
+                                    }) {
+                                        Icon(
+                                            imageVector = Icons.Default.ArrowBack,
+                                            contentDescription = "Back",
+                                            tint = GoldPrimary
+                                        )
+                                    }
                                 }
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(

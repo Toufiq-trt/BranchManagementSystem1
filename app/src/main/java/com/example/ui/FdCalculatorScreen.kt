@@ -72,7 +72,8 @@ fun FdCalculatorScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = SlateDark)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = SlateDark),
+                windowInsets = WindowInsets(0.dp)
             )
         },
         containerColor = MaterialTheme.colorScheme.background
@@ -81,7 +82,7 @@ fun FdCalculatorScreen(
             modifier = modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(16.dp),
+                .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Introductory signboard card removed as requested
@@ -264,13 +265,18 @@ fun OutputRow(
             text = label,
             fontSize = fontSize,
             color = Color.LightGray,
-            fontWeight = if (isBold) FontWeight.SemiBold else FontWeight.Normal
+            fontWeight = if (isBold) FontWeight.SemiBold else FontWeight.Normal,
+            modifier = Modifier.weight(1f, fill = false),
+            maxLines = 2
         )
+        Spacer(modifier = Modifier.width(8.dp))
         Text(
             text = value,
             fontSize = fontSize,
             fontWeight = if (isBold) FontWeight.Bold else FontWeight.Normal,
-            color = color
+            color = color,
+            maxLines = 1,
+            softWrap = false
         )
     }
 }
