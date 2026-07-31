@@ -172,17 +172,51 @@ fun DashboardScreen(
             )
             IconButton(
                 onClick = {
-                    val activeDebitList = items.filter { it.type == "DEBIT_CARD" && !it.isDelivered && !it.isDestroyed }
-                    val activeDpsList = items.filter { it.type == "DPS" && !it.isDelivered && !it.isDestroyed }
-                    val activeChequeList = items.filter { it.type == "CHEQUE_BOOK" && !it.isDelivered && !it.isDestroyed }
-
                     val reportDate = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()).format(Date())
                     val reportTime = SimpleDateFormat("hh:mm a", Locale.getDefault()).format(Date())
                     val officerName = viewModel.currentUser?.name ?: "Officer Toufiq"
 
                     val formattedDate = SimpleDateFormat("d-M-yyyy", Locale.getDefault()).format(Date())
                     val pdfFilename = "Branch Share Active-$formattedDate.pdf"
-                    val pdfTitle = "BRANCH SMART ACTIVE BALANCE REPORT"
+                    val pdfTitle = "BRANCH SMART ACTIVE BALANCE METRICS REPORT"
+
+                    val curCal = Calendar.getInstance()
+                    val curMonth = curCal.get(Calendar.MONTH)
+                    val curYear = curCal.get(Calendar.YEAR)
+
+                    fun isDeliveredThisMonth(item: com.example.data.BankingItem): Boolean {
+                        if (!item.isDelivered || item.deliveryDate <= 0L) return false
+                        val cal = Calendar.getInstance().apply { timeInMillis = item.deliveryDate }
+                        return cal.get(Calendar.MONTH) == curMonth && cal.get(Calendar.YEAR) == curYear
+                    }
+
+                    fun countDays(receivedDate: Long): Int {
+                        return ((now - receivedDate) / (1000 * 3600 * 24)).toInt()
+                    }
+
+                    // DEBIT CARDS
+                    val debitActive = items.filter { it.type == "DEBIT_CARD" && !it.isDelivered && !it.isDestroyed }
+                    val debit30Days = debitActive.count { countDays(it.receivedDate) in 30..89 }
+                    val debit90Days = debitActive.count { countDays(it.receivedDate) >= 90 }
+                    val debitDeliveredThisMonth = items.filter { it.type == "DEBIT_CARD" }.count { isDeliveredThisMonth(it) }
+
+                    // CARD PINs
+                    val pinActive = items.filter { it.type == "PIN" && !it.isDelivered && !it.isDestroyed }
+                    val pin30Days = pinActive.count { countDays(it.receivedDate) in 30..89 }
+                    val pin90Days = pinActive.count { countDays(it.receivedDate) >= 90 }
+                    val pinDeliveredThisMonth = items.filter { it.type == "PIN" }.count { isDeliveredThisMonth(it) }
+
+                    // CHEQUE BOOKS
+                    val chequeActive = items.filter { it.type == "CHEQUE_BOOK" && !it.isDelivered && !it.isDestroyed }
+                    val cheque30Days = chequeActive.count { countDays(it.receivedDate) in 30..89 }
+                    val cheque90Days = chequeActive.count { countDays(it.receivedDate) >= 90 }
+                    val chequeDeliveredThisMonth = items.filter { it.type == "CHEQUE_BOOK" }.count { isDeliveredThisMonth(it) }
+
+                    // DPS SLIPS
+                    val dpsActive = items.filter { it.type == "DPS" && !it.isDelivered && !it.isDestroyed }
+                    val dps30Days = dpsActive.count { countDays(it.receivedDate) in 30..89 }
+                    val dps90Days = dpsActive.count { countDays(it.receivedDate) >= 90 }
+                    val dpsDeliveredThisMonth = items.filter { it.type == "DPS" }.count { isDeliveredThisMonth(it) }
 
                     val fullReportText = buildString {
                         appendLine("========================================")
@@ -193,43 +227,35 @@ fun DashboardScreen(
                         appendLine("Officer Name: $officerName")
                         appendLine("========================================")
                         appendLine()
-                        
-                        appendLine("--- ACTIVE DEBIT CARDS (${activeDebitList.size}) ---")
-                        if (activeDebitList.isEmpty()) {
-                            appendLine("No active debit cards.")
-                        } else {
-                            activeDebitList.forEachIndexed { idx, item ->
-                                appendLine("${idx + 1}. Name: ${item.customerName} | A/C: ${item.accountNumber} | Phone: ${item.phoneNumber}")
-                            }
-                        }
+                        appendLine("--- BRANCH BALANCE METRICS (NUMBERS ONLY) ---")
                         appendLine()
-                        
-                        appendLine("--- ACTIVE DPS SLIPS (${activeDpsList.size}) ---")
-                        if (activeDpsList.isEmpty()) {
-                            appendLine("No active DPS Slips.")
-                        } else {
-                            activeDpsList.forEachIndexed { idx, item ->
-                                appendLine("${idx + 1}. Name: ${item.customerName} | A/C: ${item.accountNumber} | Phone: ${item.phoneNumber}")
-                            }
-                        }
+                        appendLine("1. DEBIT CARDS")
+                        appendLine("   • Active Cards Total: ${debitActive.size}")
+                        appendLine("   • 30 Days Completed (30-89 Days): $debit30Days")
+                        appendLine("   • 90 Days Completed (≥ 90 Days): $debit90Days")
+                        appendLine("   • Delivered This Month: $debitDeliveredThisMonth")
                         appendLine()
-                        
-                        appendLine("--- ACTIVE CHEQUE BOOKS (${activeChequeList.size}) ---")
-                        if (activeChequeList.isEmpty()) {
-                            appendLine("No active Cheque Books.")
-                        } else {
-                            activeChequeList.forEachIndexed { idx, item ->
-                                appendLine("${idx + 1}. Name: ${item.customerName} | A/C: ${item.accountNumber} | Phone: ${item.phoneNumber}")
-                            }
-                        }
+                        appendLine("2. CARD PINs")
+                        appendLine("   • Active PINs Total: ${pinActive.size}")
+                        appendLine("   • 30 Days Completed (30-89 Days): $pin30Days")
+                        appendLine("   • 90 Days Completed (≥ 90 Days): $pin90Days")
+                        appendLine("   • Delivered This Month: $pinDeliveredThisMonth")
                         appendLine()
-                        
-                        appendLine("--- ACTIVE PRIZE BONDS ---")
-                        appendLine("Current vault quantity: $prizeBondVal Pcs")
+                        appendLine("3. CHEQUE BOOKS")
+                        appendLine("   • Active Cheque Books Total: ${chequeActive.size}")
+                        appendLine("   • 30 Days Completed (30-89 Days): $cheque30Days")
+                        appendLine("   • 90 Days Completed (≥ 90 Days): $cheque90Days")
+                        appendLine("   • Delivered This Month: $chequeDeliveredThisMonth")
                         appendLine()
-                        
-                        appendLine("--- ACTIVE PAYORDERS ---")
-                        appendLine("Current vault quantity: $payOrderVal Pcs")
+                        appendLine("4. DPS SLIPS")
+                        appendLine("   • Active DPS Slips Total: ${dpsActive.size}")
+                        appendLine("   • 30 Days Completed (30-89 Days): $dps30Days")
+                        appendLine("   • 90 Days Completed (≥ 90 Days): $dps90Days")
+                        appendLine("   • Delivered This Month: $dpsDeliveredThisMonth")
+                        appendLine()
+                        appendLine("5. VAULT STOCK")
+                        appendLine("   • Active Prize Bonds Quantity: $prizeBondVal Pcs")
+                        appendLine("   • Active Pay Orders Quantity: $payOrderVal Pcs")
                         appendLine()
                         appendLine("========================================")
                         appendLine("Generated Securely - Operations Registry")
@@ -351,16 +377,16 @@ fun DashboardScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                // ATM Replenishment Navigation - Reduced weight for smaller relative size
+                // ATM Replenishment Navigation - 50% ratio
                 Card(
                     modifier = Modifier
-                        .weight(0.8f)
+                        .weight(1f)
                         .clickable { onNavigate("atm_calc") },
                     colors = CardDefaults.cardColors(containerColor = SlateDark),
                     shape = RoundedCornerShape(10.dp)
                 ) {
                     Row(
-                        modifier = Modifier.padding(12.dp),
+                        modifier = Modifier.padding(10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(
@@ -369,9 +395,9 @@ fun DashboardScreen(
                                 .background(GoldPrimary.copy(alpha = 0.15f), RoundedCornerShape(8.dp)),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(Icons.Default.LocalAtm, contentDescription = null, tint = GoldPrimary, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.LocalAtm, contentDescription = null, tint = GoldPrimary, modifier = Modifier.size(18.dp))
                         }
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
                         Column {
                             Text("ATM REPLENISH", fontWeight = FontWeight.Bold, fontSize = 10.sp, color = Color.White)
                             Text("Replenishment", fontSize = 9.sp, color = Color.LightGray)
@@ -379,30 +405,30 @@ fun DashboardScreen(
                     }
                 }
 
-                // Customer Hunting Navigation - Increased weight for larger relative size
+                // Customer Hunting Navigation - 50% ratio
                 Card(
                     modifier = Modifier
-                        .weight(1.2f)
+                        .weight(1f)
                         .clickable { onNavigate("hunting") },
                     colors = CardDefaults.cardColors(containerColor = SlateDark),
                     shape = RoundedCornerShape(10.dp)
                 ) {
                     Row(
-                        modifier = Modifier.padding(12.dp),
+                        modifier = Modifier.padding(10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(36.dp)
+                                .size(32.dp)
                                 .background(GreenAccent.copy(alpha = 0.15f), RoundedCornerShape(8.dp)),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(Icons.Default.Groups, contentDescription = null, tint = GreenAccent, modifier = Modifier.size(20.dp))
+                            Icon(Icons.Default.Groups, contentDescription = null, tint = GreenAccent, modifier = Modifier.size(18.dp))
                         }
-                        Spacer(modifier = Modifier.width(10.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
                         Column {
-                            Text("CUSTOMER FINDINGS", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = Color.White)
-                            Text("Customer Lead Finder", fontSize = 10.sp, color = Color.LightGray)
+                            Text("FINDINGS", fontWeight = FontWeight.Bold, fontSize = 10.sp, color = Color.White)
+                            Text("Customer Leads", fontSize = 9.sp, color = Color.LightGray)
                         }
                     }
                 }

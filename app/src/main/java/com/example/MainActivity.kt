@@ -91,7 +91,7 @@ fun MainContainer(viewModel: BankingViewModel) {
     } else {
         ModalNavigationDrawer(
             drawerState = drawerState,
-            gesturesEnabled = (viewModel.currentScreen == "dashboard"),
+            gesturesEnabled = false,
             drawerContent = {
                 ModalDrawerSheet(
                     drawerContainerColor = MaterialTheme.colorScheme.surface,

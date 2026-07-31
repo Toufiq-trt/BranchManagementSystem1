@@ -1598,8 +1598,8 @@ fun CustomerNoticeLetterDialog(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
-                        Text("PUBALI BANK PLC", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 14.sp)
-                        Text("Chirirbandar Branch | Notice Ref: #${item.id}", fontSize = 11.sp, color = GoldPrimary)
+                        Text("Shimanto Bank PLC.", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 14.sp)
+                        Text("Chirirbandar Branch, Dinajpur | Notice Ref: #${item.id}", fontSize = 11.sp, color = GoldPrimary)
                         Text("Notice Date: $currentDateStr", fontSize = 11.sp, color = Color.LightGray)
                     }
                 }
@@ -1615,7 +1615,7 @@ fun CustomerNoticeLetterDialog(
                         Text("• Name: ${item.customerName}", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
                         Text("• Account No: ${item.accountNumber}", fontSize = 12.sp)
                         Text("• Phone: ${item.phoneNumber}", fontSize = 12.sp)
-                        Text("• Address: ${if (item.address.isBlank()) "CHIRIRBANDAR" else item.address}", fontSize = 12.sp)
+                        Text("• Address: ${if (item.address.isBlank()) "Chirirbandar, Dinajpur" else item.address}", fontSize = 12.sp)
                         Text("• Item Category: ${item.type.replace("_", " ")}", fontSize = 12.sp)
                         Text("• Received Date: $rxDateStr", fontSize = 12.sp)
                         Text("• Vault Duration: $daysStaying Days (Over 30 Days)", fontWeight = FontWeight.Bold, color = RedAccent, fontSize = 12.sp)
@@ -1636,12 +1636,12 @@ fun CustomerNoticeLetterDialog(
                         Text(
                             "Subject: Notice Regarding Uncollected ${item.type.replace("_", " ")}\n\n" +
                             "Dear Valued Customer,\n" +
-                            "This is an official communication from Pubali Bank PLC regarding your requested ${item.type.replace("_", " ")} for Account Number ${item.accountNumber}.\n\n" +
+                            "This is an official communication from Shimanto Bank PLC. regarding your requested ${item.type.replace("_", " ")} for Account Number ${item.accountNumber}.\n\n" +
                             "The item was safely received at our branch on $rxDateStr and has been stored in our vault for over $daysStaying days.\n\n" +
                             "In accordance with standard banking security protocols, items remaining uncollected after 90 days are scheduled for mandatory destruction or return.\n\n" +
-                            "You are kindly requested to visit our Chirirbandar branch during working hours with your original NID/Passport to collect your item.\n\n" +
+                            "You are kindly requested to visit our Chirirbandar Branch, Dinajpur during working hours with your original NID/Passport to collect your item.\n\n" +
                             "Sincerely,\n" +
-                            "Branch Officer / Manager, Pubali Bank PLC",
+                            "Branch Officer / Manager, Shimanto Bank PLC.",
                             fontSize = 11.sp,
                             lineHeight = 16.sp
                         )

@@ -65,7 +65,7 @@ fun LoanCalculatorScreen(
 
     val formatter = DecimalFormat("#,##,##0.00")
 
-    // Chart Data Pre-computation (Tk 1 Lac to Tk 10 Lac, 15 Lac, 20 Lac @ 9.90% Constant Rate)
+    // Chart Data Pre-computation (Tk 5 Lac to Tk 20 Lac @ 0.5 Lac step, 9.90% Constant Rate)
     fun calcEmi(principal: Double, ratePa: Double, months: Int): Double {
         val rateMonthly = (ratePa / 12.0) / 100.0
         if (principal <= 0 || months <= 0) return 0.0
@@ -74,7 +74,12 @@ fun LoanCalculatorScreen(
         return (principal * rateMonthly * base) / (base - 1.0)
     }
 
-    val loanAmounts = (100000..1000000 step 100000).toList() + listOf(1500000, 2000000)
+    fun formatLac(principal: Int): String {
+        val lac = principal / 100000.0
+        return if (lac % 1.0 == 0.0) "${lac.toInt()} Lac" else "$lac Lac"
+    }
+
+    val loanAmounts = (500000..2000000 step 50000).toList()
     val headers = listOf("Loan Amount", "3Y EMI (9.9%)", "5Y EMI (9.9%)", "7Y EMI (9.9%)", "8Y EMI (9.9%)", "10Y EMI (9.9%)")
 
     val chartRows = loanAmounts.map { principal ->
@@ -86,7 +91,7 @@ fun LoanCalculatorScreen(
         val emi10y = calcEmi(p, 9.90, 120)
 
         listOf(
-            "Tk ${formatter.format(p)}",
+            formatLac(principal),
             formatter.format(emi3y),
             formatter.format(emi5y),
             formatter.format(emi7y),
@@ -336,7 +341,7 @@ fun LoanCalculatorScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            "EMI calculated at constant 9.90% rate for 3Y, 5Y, 7Y, 8Y, 10Y",
+                            "EMI calculated at 9.90% constant rate (Tk 5 Lac - Tk 20 Lac @ 0.5 Lac step)",
                             fontSize = 11.sp,
                             color = Color.Gray
                         )

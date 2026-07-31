@@ -65,9 +65,26 @@ fun FdCalculatorScreen(
 
     val formatter = DecimalFormat("#,##,##0.00")
 
-    // Chart Data Pre-computation (Tk 1 Lac to Tk 10 Lac)
-    val fdAmounts = (100000..1000000 step 100000).toList()
-    val headers = listOf("FDR Amount", "89D Gross", "89D Net (10%)", "89D Net (15%)", "1Y Gross", "1Y M.Net(10%)", "1Y M.Net(15%)", "6Y8M Double")
+    fun formatLac(principal: Int): String {
+        val lac = principal / 100000.0
+        return if (lac % 1.0 == 0.0) "${lac.toInt()} Lac" else "$lac Lac"
+    }
+
+    // Chart Data Pre-computation (1 Lac to 10 Lac, then 12 Lac, 15 Lac, 18 Lac, 20 Lac, 25 Lac, 30 Lac)
+    val fdAmounts = listOf(
+        100000, 200000, 300000, 400000, 500000, 600000, 700000, 800000, 900000, 1000000,
+        1200000, 1500000, 1800000, 2000000, 2500000, 3000000
+    )
+    val headers = listOf(
+        "FDR Amount",
+        "89D Gross",
+        "89D Net (10%)",
+        "89D Net (15%)",
+        "1Y Gross",
+        "1Y Monthly Net (10%)",
+        "1Y Monthly Net (15%)",
+        "6 Year 8 Month Double Money"
+    )
 
     val chartRows = fdAmounts.map { principal ->
         val p = principal.toDouble()
@@ -80,16 +97,18 @@ fun FdCalculatorScreen(
         val m1y_15 = (g1y * 0.85) / 12.0
 
         val doubleMoney = p * 2.0
+        val doubleLac = doubleMoney / 100000.0
+        val doubleStr = if (doubleLac % 1.0 == 0.0) "${doubleLac.toInt()} Lac" else "$doubleLac Lac"
 
         listOf(
-            "Tk ${formatter.format(p)}",
+            formatLac(principal),
             formatter.format(g89),
             formatter.format(n89_10),
             formatter.format(n89_15),
             formatter.format(g1y),
             formatter.format(m1y_10),
             formatter.format(m1y_15),
-            "Tk ${formatter.format(doubleMoney)}"
+            doubleStr
         )
     }
 
@@ -343,13 +362,15 @@ fun FdCalculatorScreen(
                                 ) {
                                     Text("FDR AMOUNT", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.LightGray, modifier = Modifier.width(85.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                                     Spacer(modifier = Modifier.width(2.dp))
-                                    Text("--- 89 DAYS SPECIAL FDR (8%) ---", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = GoldPrimary, modifier = Modifier.width(255.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                    Text("--- 89 DAYS SPECIAL FDR (8%) ---", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = GoldPrimary, modifier = Modifier.width(240.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                                     Spacer(modifier = Modifier.width(2.dp))
-                                    Text("--- 1 YEAR FDR (11%) ---", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = GreenAccent, modifier = Modifier.width(255.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                    Text("--- 1 YEAR FDR (11%) ---", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = GreenAccent, modifier = Modifier.width(310.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                                     Spacer(modifier = Modifier.width(2.dp))
-                                    Text("6Y 8M DOUBLE", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = GoldLight, modifier = Modifier.width(90.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                    Text("6 YEAR 8 MONTH DOUBLE", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = GoldLight, modifier = Modifier.width(120.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                                 }
                                 HorizontalDivider(color = GoldPrimary.copy(alpha = 0.5f), thickness = 1.dp)
+
+                                val colWidths = listOf(85.dp, 80.dp, 80.dp, 80.dp, 80.dp, 115.dp, 115.dp, 120.dp)
 
                                 // Header Row
                                 Row(
@@ -360,10 +381,10 @@ fun FdCalculatorScreen(
                                     headers.forEachIndexed { hIdx, h ->
                                         Text(
                                             text = h,
-                                            fontSize = 9.sp,
+                                            fontSize = 8.5.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = GoldLight,
-                                            modifier = Modifier.width(85.dp),
+                                            modifier = Modifier.width(colWidths.getOrElse(hIdx) { 85.dp }),
                                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
                                         )
                                     }
@@ -383,7 +404,7 @@ fun FdCalculatorScreen(
                                                 fontSize = 9.sp,
                                                 color = if (cIdx == 0) GoldPrimary else if (cIdx == 7) GoldLight else Color.White,
                                                 fontWeight = if (cIdx == 0 || cIdx == 7) FontWeight.Bold else FontWeight.Normal,
-                                                modifier = Modifier.width(85.dp),
+                                                modifier = Modifier.width(colWidths.getOrElse(cIdx) { 85.dp }),
                                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
                                             )
                                         }

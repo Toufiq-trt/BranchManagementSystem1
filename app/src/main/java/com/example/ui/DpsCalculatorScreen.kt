@@ -305,44 +305,77 @@ fun DpsCalculatorScreen(
             }
         }
 
-        if (showChartDialog) {
-            AlertDialog(
-                onDismissRequest = { showChartDialog = false },
-                title = {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("DPS MATURITY CHART", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = GoldPrimary)
-                        IconButton(onClick = { showChartDialog = false }) {
-                            Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.Gray)
-                        }
+    val millionaireHeaders = listOf("Deposit Amount", "Tenure", "Total Deposit", "On Maturity Value")
+    val millionaireRows = listOf(
+        listOf("Tk 4,845", "10 Years", "Tk 5,81,400", "Tk 10,00,000 (10 Lac)"),
+        listOf("Tk 6,785", "8 Years", "Tk 6,51,360", "Tk 10,00,000 (10 Lac)"),
+        listOf("Tk 8,200", "7 Years", "Tk 6,88,800", "Tk 10,00,000 (10 Lac)"),
+        listOf("Tk 10,110", "6 Years", "Tk 7,27,920", "Tk 10,00,000 (10 Lac)"),
+        listOf("Tk 12,815", "5 Years", "Tk 7,68,900", "Tk 10,00,000 (10 Lac)")
+    )
+
+    if (showChartDialog) {
+        AlertDialog(
+            onDismissRequest = { showChartDialog = false },
+            title = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "DPS & MILLIONAIRE SCHEME CHART",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = GoldPrimary
+                    )
+                    IconButton(onClick = { showChartDialog = false }) {
+                        Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.Gray)
                     }
-                },
-                text = {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                }
+            },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        "General (10%), Women (10.5%), & Guaranteed Tk 10 Lac Millionaire Deposit",
+                        fontSize = 11.sp,
+                        color = Color.Gray
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(350.dp)
+                            .background(Color(0xFF0F172A), RoundedCornerShape(8.dp))
+                            .padding(4.dp)
                     ) {
-                        Text(
-                            "Monthly Deposit Range: Tk 500 - Tk 10,000 (General 10% vs Women 10.5% in Light Pink)",
-                            fontSize = 11.sp,
-                            color = Color.Gray
-                        )
-                        Box(
+                        WatermarkOverlay()
+                        Column(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .height(320.dp)
-                                .background(Color(0xFF0F172A), RoundedCornerShape(8.dp))
-                                .padding(4.dp)
+                                .fillMaxSize()
+                                .verticalScroll(rememberScrollState())
                         ) {
-                            WatermarkOverlay()
-                            Column(
+                            // SECTION 1: GENERAL & WOMEN DPS
+                            Box(
                                 modifier = Modifier
-                                    .fillMaxSize()
-                                    .horizontalScroll(rememberScrollState())
-                                    .verticalScroll(rememberScrollState())
+                                    .fillMaxWidth()
+                                    .background(SlateDark)
+                                    .padding(vertical = 5.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    "--- 1. GENERAL (10%) & WOMEN (10.5%) DPS MATURITY ---",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 10.5.sp,
+                                    color = GoldPrimary
+                                )
+                            }
+                            HorizontalDivider(color = GoldPrimary.copy(alpha = 0.5f))
+
+                            Column(
+                                modifier = Modifier.horizontalScroll(rememberScrollState())
                             ) {
                                 // Year Category Banner Row
                                 Row(
@@ -350,60 +383,60 @@ fun DpsCalculatorScreen(
                                         .background(Color(0xFF1E293B))
                                         .padding(vertical = 4.dp, horizontal = 2.dp)
                                 ) {
-                                    Text("DEPOSIT", fontSize = 9.5.sp, fontWeight = FontWeight.Bold, color = Color.LightGray, modifier = Modifier.width(90.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                    Text("DEPOSIT", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.LightGray, modifier = Modifier.width(85.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                                     Spacer(modifier = Modifier.width(2.dp))
-                                    Text("--- 3 YEARS ---", fontSize = 9.5.sp, fontWeight = FontWeight.Bold, color = GoldPrimary, modifier = Modifier.width(190.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                    Text("--- 3 YEARS ---", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = GoldPrimary, modifier = Modifier.width(170.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                                     Spacer(modifier = Modifier.width(2.dp))
-                                    Text("--- 5 YEARS ---", fontSize = 9.5.sp, fontWeight = FontWeight.Bold, color = GreenAccent, modifier = Modifier.width(190.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                    Text("--- 5 YEARS ---", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = GreenAccent, modifier = Modifier.width(170.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                                     Spacer(modifier = Modifier.width(2.dp))
-                                    Text("--- 7 YEARS ---", fontSize = 9.5.sp, fontWeight = FontWeight.Bold, color = GoldLight, modifier = Modifier.width(190.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                    Text("--- 7 YEARS ---", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = GoldLight, modifier = Modifier.width(170.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                                     Spacer(modifier = Modifier.width(2.dp))
-                                    Text("--- 10 YEARS ---", fontSize = 9.5.sp, fontWeight = FontWeight.Bold, color = Color(0xFF38BDF8), modifier = Modifier.width(190.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                    Text("--- 10 YEARS ---", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color(0xFF38BDF8), modifier = Modifier.width(170.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                                 }
-                                HorizontalDivider(color = GoldPrimary.copy(alpha = 0.5f), thickness = 1.dp)
+                                HorizontalDivider(color = GoldPrimary.copy(alpha = 0.3f), thickness = 1.dp)
 
-                                // Header Row
+                                // Header Row Table 1
                                 Row(
                                     modifier = Modifier
                                         .background(SlateDark)
-                                        .padding(vertical = 6.dp, horizontal = 4.dp)
+                                        .padding(vertical = 5.dp, horizontal = 2.dp)
                                 ) {
                                     headers.forEachIndexed { hIdx, h ->
                                         val isWomenHeader = hIdx in listOf(2, 4, 6, 8)
                                         Text(
                                             text = h,
-                                            fontSize = 9.5.sp,
+                                            fontSize = 9.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = if (isWomenHeader) Color(0xFFFFB6C1) else GoldLight,
-                                            modifier = Modifier.width(90.dp),
+                                            modifier = Modifier.width(85.dp),
                                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
                                         )
                                     }
                                 }
-                                HorizontalDivider(color = Color.Gray.copy(alpha = 0.3f))
+                                HorizontalDivider(color = Color.Gray.copy(alpha = 0.2f))
 
-                                // Data Rows
+                                // Data Rows Table 1
                                 chartRows.forEachIndexed { idx, row ->
                                     Row(
                                         modifier = Modifier
                                             .background(if (idx % 2 == 1) Color.White.copy(alpha = 0.05f) else Color.Transparent)
-                                            .padding(vertical = 4.dp, horizontal = 4.dp)
+                                            .padding(vertical = 3.dp, horizontal = 2.dp)
                                     ) {
                                         row.forEachIndexed { cIdx, cell ->
                                             val isWomenCol = cIdx in listOf(2, 4, 6, 8)
                                             Box(
                                                 modifier = Modifier
-                                                    .width(90.dp)
+                                                    .width(85.dp)
                                                     .background(
-                                                        if (isWomenCol) Color(0xFFFFD1DC).copy(alpha = 0.25f)
+                                                        if (isWomenCol) Color(0xFFFFD1DC).copy(alpha = 0.2f)
                                                         else Color.Transparent,
                                                         RoundedCornerShape(2.dp)
                                                     )
-                                                    .padding(vertical = 2.dp)
+                                                    .padding(vertical = 1.dp)
                                             ) {
                                                 Text(
                                                     text = cell,
-                                                    fontSize = 10.5.sp,
+                                                    fontSize = 9.5.sp,
                                                     color = if (cIdx == 0) GoldPrimary else if (isWomenCol) Color(0xFFFFB6C1) else Color.White,
                                                     fontWeight = if (cIdx == 0 || isWomenCol) FontWeight.Bold else FontWeight.Normal,
                                                     modifier = Modifier.fillMaxWidth(),
@@ -414,40 +447,113 @@ fun DpsCalculatorScreen(
                                     }
                                 }
                             }
-                        }
 
-                        // Bottom Right Officer Contact Block
-                        OfficerContactFooter(initialMessage = "Assalamualaikum Toufiq Vai.. Ami ekta DPS/FD Korte Chai.")
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            // SECTION 2: MILLIONAIRE SCHEME
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(GreenAccent.copy(alpha = 0.25f))
+                                    .padding(vertical = 6.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    "★ 2. SPECIAL MILLIONAIRE SCHEME (Tk 10 LAC MATURITY) ★",
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 11.sp,
+                                    color = GoldLight
+                                )
+                            }
+                            HorizontalDivider(color = GoldPrimary, thickness = 1.dp)
+
+                            // Header Row Table 2
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(SlateDark)
+                                    .padding(vertical = 6.dp, horizontal = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                millionaireHeaders.forEach { h ->
+                                    Text(
+                                        text = h,
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = GoldLight,
+                                        modifier = Modifier.weight(1f),
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    )
+                                }
+                            }
+                            HorizontalDivider(color = Color.Gray.copy(alpha = 0.3f))
+
+                            // Data Rows Table 2
+                            millionaireRows.forEachIndexed { idx, row ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(if (idx % 2 == 1) Color.White.copy(alpha = 0.05f) else Color.Transparent)
+                                        .padding(vertical = 5.dp, horizontal = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(row[0], fontSize = 10.sp, fontWeight = FontWeight.Bold, color = GoldPrimary, modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                    Text(row[1], fontSize = 9.5.sp, color = Color.White, modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                    Text(row[2], fontSize = 9.5.sp, color = Color.LightGray, modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                    
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .background(GoldPrimary.copy(alpha = 0.25f), RoundedCornerShape(4.dp))
+                                            .padding(vertical = 2.dp, horizontal = 2.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            row[3],
+                                            fontSize = 9.5.sp,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color = GoldLight,
+                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                        )
+                                    }
+                                }
+                                HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
+                            }
+                        }
                     }
-                },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            showChartDialog = false
-                            PdfHelper.generateCustomChartPdf(
-                                context = context,
-                                fileName = "DPS_Maturity_Chart.pdf",
-                                chartTitle = "DPS SAVINGS MATURITY CHART",
-                                chartSubtitle = "General Rate 10.00% p.a. vs Women Rate 10.50% p.a. (Tk 500 - Tk 10,000)",
-                                headers = headers,
-                                rows = chartRows,
-                                highlightColumns = listOf(2, 4, 6, 8),
-                                thickBorderColumns = listOf(0, 2, 4, 6, 8)
-                            )
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary, contentColor = SlateDark)
-                    ) {
-                        Icon(Icons.Default.PictureAsPdf, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Download PDF Chart", fontWeight = FontWeight.Bold)
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showChartDialog = false }) {
-                        Text("Close")
-                    }
+
+                    // Bottom Right Officer Contact Block
+                    OfficerContactFooter(initialMessage = "Assalamualaikum Toufiq Vai.. Ami ekta DPS/FD Korte Chai.")
                 }
-            )
-        }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showChartDialog = false
+                        PdfHelper.generateDpsCombinedPdf(
+                            context = context,
+                            fileName = "DPS_Combined_Savings_Millionaire_Chart.pdf",
+                            chartTitle = "DPS SAVINGS & MILLIONAIRE SCHEME CHART",
+                            chartSubtitle = "General (10%), Women (10.5%), & Guaranteed Tk 10 Lac Millionaire Deposit",
+                            headers1 = headers,
+                            rows1 = chartRows,
+                            headers2 = millionaireHeaders,
+                            rows2 = millionaireRows
+                        )
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary, contentColor = SlateDark)
+                ) {
+                    Icon(Icons.Default.PictureAsPdf, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Download Combined DPS PDF", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showChartDialog = false }) {
+                    Text("Close")
+                }
+            }
+        )
     }
+}
 }

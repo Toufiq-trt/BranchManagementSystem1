@@ -58,17 +58,17 @@ fun WatermarkOverlay(modifier: Modifier = Modifier) {
         ) {
             Text(
                 text = "For FD and DPS",
-                fontSize = 24.sp,
+                fontSize = 26.sp,
                 fontWeight = FontWeight.ExtraBold,
-                color = Color.White.copy(alpha = 0.09f),
+                color = GoldPrimary.copy(alpha = 0.25f),
                 textAlign = TextAlign.Center
             )
             Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = "WhatsApp on : 01517836078",
-                fontSize = 18.sp,
+                fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.White.copy(alpha = 0.09f),
+                color = Color.White.copy(alpha = 0.25f),
                 textAlign = TextAlign.Center
             )
         }
