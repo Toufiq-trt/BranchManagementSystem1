@@ -195,7 +195,7 @@ fun SettingsScreen(
                             TextButton(
                                 contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
                                 onClick = {
-                                    val url = "https://docs.google.com/spreadsheets/d/1BUc13oZ_qKIBW9OOFtcPAZh9aoELxyVq6sguoAyAdFg/edit?usp=sharing"
+                                    val url = "https://docs.google.com/spreadsheets/d/1Ah7wHvJDbzAF9VUJLlBs6YHKfInY6ZWeXlmyZtlUj9Q/edit?usp=sharing"
                                     clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(url))
                                     userMessage = "Official Sheets link copied!"
                                 }

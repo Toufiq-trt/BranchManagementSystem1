@@ -42,6 +42,12 @@ fun AtmCalculatorScreen(
     var c3Remaining by remember { mutableStateOf("") }
     var c4Remaining by remember { mutableStateOf("") }
 
+    // Reject Box Inputs (for ATM-25)
+    var c1Reject by remember { mutableStateOf("") }
+    var c2Reject by remember { mutableStateOf("") }
+    var c3Reject by remember { mutableStateOf("") }
+    var c4Reject by remember { mutableStateOf("") }
+
     // Loading Inputs (for ATM-25 setup after Required Cash To Load)
     var c1LoadingInput by remember { mutableStateOf("") }
     var c2LoadingInput by remember { mutableStateOf("") }
@@ -63,6 +69,10 @@ fun AtmCalculatorScreen(
         c2Remaining = ""
         c3Remaining = ""
         c4Remaining = ""
+        c1Reject = ""
+        c2Reject = ""
+        c3Reject = ""
+        c4Reject = ""
         c1LoadingInput = ""
         c2LoadingInput = ""
         c3LoadingInput = ""
@@ -92,16 +102,23 @@ fun AtmCalculatorScreen(
     val c3RemInt = c3Remaining.toIntOrNull() ?: 0
     val c4RemInt = c4Remaining.toIntOrNull() ?: 0
 
-    // Math calculations for remaining
-    val remNotes1000 = c1RemInt + c2RemInt
-    val remNotes500 = c3RemInt + c4RemInt
+    // Reject notes parsing (for ATM-25)
+    val c1RejInt = if (isAtm25) (c1Reject.toIntOrNull() ?: 0) else 0
+    val c2RejInt = if (isAtm25) (c2Reject.toIntOrNull() ?: 0) else 0
+    val c3RejInt = if (isAtm25) (c3Reject.toIntOrNull() ?: 0) else 0
+    val c4RejInt = if (isAtm25) (c4Reject.toIntOrNull() ?: 0) else 0
+
+    // Math calculations for remaining (Cassette Balance + Reject Box)
+    val remNotes1000 = (c1RemInt + c1RejInt) + (c2RemInt + c2RejInt)
+    val remNotes500 = (c3RemInt + c3RejInt) + (c4RemInt + c4RejInt)
+    val totalRemNotes = remNotes1000 + remNotes500
     val remainingAmount = (remNotes1000 * 1000L) + (remNotes500 * 500L)
 
     // Required Cash To Load (Automatic Calculation)
-    val c1Required = (c1Cap - c1RemInt).coerceAtLeast(0)
-    val c2Required = (c2Cap - c2RemInt).coerceAtLeast(0)
-    val c3Required = (c3Cap - c3RemInt).coerceAtLeast(0)
-    val c4Required = (c4Cap - c4RemInt).coerceAtLeast(0)
+    val c1Required = (c1Cap - (c1RemInt + c1RejInt)).coerceAtLeast(0)
+    val c2Required = (c2Cap - (c2RemInt + c2RejInt)).coerceAtLeast(0)
+    val c3Required = (c3Cap - (c3RemInt + c3RejInt)).coerceAtLeast(0)
+    val c4Required = (c4Cap - (c4RemInt + c4RejInt)).coerceAtLeast(0)
     val requiredCashToLoad = ((c1Required + c2Required) * 1000L) + ((c3Required + c4Required) * 500L)
 
     // Cassette Wise Load Counts depending on ATM type:
@@ -235,45 +252,168 @@ fun AtmCalculatorScreen(
 
                 // Cassette Inputs
                 item {
-                    Text("Input Remaining Notes Left In ATM (Max $c1Cap notes, 4-digits max)", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = GoldPrimary)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        OutlinedTextField(
-                            value = c1Remaining,
-                            onValueChange = { c1Remaining = sanitizeInput(it, c1Cap) },
-                            label = { Text("C1 (1000)") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.weight(1f),
-                            singleLine = true
-                        )
-                        OutlinedTextField(
-                            value = c2Remaining,
-                            onValueChange = { c2Remaining = sanitizeInput(it, c2Cap) },
-                            label = { Text("C2 (1000)") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.weight(1f),
-                            singleLine = true
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        OutlinedTextField(
-                            value = c3Remaining,
-                            onValueChange = { c3Remaining = sanitizeInput(it, c3Cap) },
-                            label = { Text("C3 (500)") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.weight(1f),
-                            singleLine = true
-                        )
-                        OutlinedTextField(
-                            value = c4Remaining,
-                            onValueChange = { c4Remaining = sanitizeInput(it, c4Cap) },
-                            label = { Text("C4 (500)") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.weight(1f),
-                            singleLine = true
-                        )
+                    if (isAtm25) {
+                        Text("Input Remaining Balance & Reject Box Notes (Max $c1Cap notes each)", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = GoldPrimary)
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Cassette 1 (1000)
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text("Cassette 1 (1000 Taka)", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = GoldPrimary)
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    OutlinedTextField(
+                                        value = c1Remaining,
+                                        onValueChange = { c1Remaining = sanitizeInput(it, c1Cap) },
+                                        label = { Text("C1 Rem Balance") },
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                        modifier = Modifier.weight(1f),
+                                        singleLine = true
+                                    )
+                                    OutlinedTextField(
+                                        value = c1Reject,
+                                        onValueChange = { c1Reject = sanitizeInput(it, c1Cap) },
+                                        label = { Text("C1 Reject Box") },
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                        modifier = Modifier.weight(1f),
+                                        singleLine = true
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Cassette 2 (1000)
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text("Cassette 2 (1000 Taka)", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = GoldPrimary)
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    OutlinedTextField(
+                                        value = c2Remaining,
+                                        onValueChange = { c2Remaining = sanitizeInput(it, c2Cap) },
+                                        label = { Text("C2 Rem Balance") },
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                        modifier = Modifier.weight(1f),
+                                        singleLine = true
+                                    )
+                                    OutlinedTextField(
+                                        value = c2Reject,
+                                        onValueChange = { c2Reject = sanitizeInput(it, c2Cap) },
+                                        label = { Text("C2 Reject Box") },
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                        modifier = Modifier.weight(1f),
+                                        singleLine = true
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Cassette 3 (500)
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text("Cassette 3 (500 Taka)", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = GoldPrimary)
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    OutlinedTextField(
+                                        value = c3Remaining,
+                                        onValueChange = { c3Remaining = sanitizeInput(it, c3Cap) },
+                                        label = { Text("C3 Rem Balance") },
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                        modifier = Modifier.weight(1f),
+                                        singleLine = true
+                                    )
+                                    OutlinedTextField(
+                                        value = c3Reject,
+                                        onValueChange = { c3Reject = sanitizeInput(it, c3Cap) },
+                                        label = { Text("C3 Reject Box") },
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                        modifier = Modifier.weight(1f),
+                                        singleLine = true
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Cassette 4 (500)
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text("Cassette 4 (500 Taka)", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = GoldPrimary)
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    OutlinedTextField(
+                                        value = c4Remaining,
+                                        onValueChange = { c4Remaining = sanitizeInput(it, c4Cap) },
+                                        label = { Text("C4 Rem Balance") },
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                        modifier = Modifier.weight(1f),
+                                        singleLine = true
+                                    )
+                                    OutlinedTextField(
+                                        value = c4Reject,
+                                        onValueChange = { c4Reject = sanitizeInput(it, c4Cap) },
+                                        label = { Text("C4 Reject Box") },
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                        modifier = Modifier.weight(1f),
+                                        singleLine = true
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        Text("Input Remaining Notes Left In ATM (Max $c1Cap notes, 4-digits max)", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = GoldPrimary)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            OutlinedTextField(
+                                value = c1Remaining,
+                                onValueChange = { c1Remaining = sanitizeInput(it, c1Cap) },
+                                label = { Text("C1 (1000)") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.weight(1f),
+                                singleLine = true
+                            )
+                            OutlinedTextField(
+                                value = c2Remaining,
+                                onValueChange = { c2Remaining = sanitizeInput(it, c2Cap) },
+                                label = { Text("C2 (1000)") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.weight(1f),
+                                singleLine = true
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            OutlinedTextField(
+                                value = c3Remaining,
+                                onValueChange = { c3Remaining = sanitizeInput(it, c3Cap) },
+                                label = { Text("C3 (500)") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.weight(1f),
+                                singleLine = true
+                            )
+                            OutlinedTextField(
+                                value = c4Remaining,
+                                onValueChange = { c4Remaining = sanitizeInput(it, c4Cap) },
+                                label = { Text("C4 (500)") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.weight(1f),
+                                singleLine = true
+                            )
+                        }
                     }
                 }
 
@@ -299,6 +439,10 @@ fun AtmCalculatorScreen(
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                 Text("Remaining 500 Notes:", color = Color.White.copy(alpha = 0.7f))
                                 Text("$remNotes500 Pcs", color = Color.White)
+                            }
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Total Remaining Notes:", color = GoldLight, fontWeight = FontWeight.Bold)
+                                Text("$totalRemNotes Pcs", color = GoldLight, fontWeight = FontWeight.Bold)
                             }
 
                             HorizontalDivider(color = Color.White.copy(alpha = 0.15f), modifier = Modifier.padding(vertical = 4.dp))

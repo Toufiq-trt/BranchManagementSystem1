@@ -101,6 +101,9 @@ class BankingViewModel(application: Application) : AndroidViewModel(application)
     
     var isAiGenerating by mutableStateOf(false)
 
+    var isNetworkConnected by mutableStateOf(false)
+        private set
+
     init {
         val sharedPrefs = application.getSharedPreferences("smart_banking_prefs", android.content.Context.MODE_PRIVATE)
         isDarkMode = sharedPrefs.getBoolean("dark_theme", true)
@@ -131,6 +134,9 @@ class BankingViewModel(application: Application) : AndroidViewModel(application)
         // Start bi-directional mirroring with Firebase Realtime Database
         FirebaseSyncHelper.startBiDirectionalSync(repository)
         
+        // Setup automatic network listener for auto-sync on internet connection
+        setupNetworkConnectivityObserver()
+
         // Check for updates silently on startup
         checkForUpdatesSilently()
         
@@ -348,7 +354,8 @@ class BankingViewModel(application: Application) : AndroidViewModel(application)
                     "DEBIT_CARD" -> "https://docs.google.com/spreadsheets/d/1e_22aHpRoJYBe9J0ohT-PzwHmXGhrOtNlsQeOVHg67M/export?format=csv&gid=0"
                     "CHEQUE_BOOK" -> "https://docs.google.com/spreadsheets/d/1cakIYc79gR-YVnqKe4-i8J95AEuIKa4Q/export?format=csv&gid=2027095460"
                     "PIN" -> "https://docs.google.com/spreadsheets/d/1e_22aHpRoJYBe9J0ohT-PzwHmXGhrOtNlsQeOVHg67M/export?format=csv&gid=0"
-                    else -> "https://docs.google.com/spreadsheets/d/1BUc13oZ_qKIBW9OOFtcPAZh9aoELxyVq6sguoAyAdFg/export?format=csv&gid=0"
+                    "DPS" -> "https://docs.google.com/spreadsheets/d/1Ah7wHvJDbzAF9VUJLlBs6YHKfInY6ZWeXlmyZtlUj9Q/export?format=csv&gid=0"
+                    else -> "https://docs.google.com/spreadsheets/d/1Ah7wHvJDbzAF9VUJLlBs6YHKfInY6ZWeXlmyZtlUj9Q/export?format=csv&gid=0"
                 }
 
                 val csvText = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
@@ -1086,6 +1093,68 @@ class BankingViewModel(application: Application) : AndroidViewModel(application)
                     deliveryDate = 0L
                 )
             )
+        }
+    }
+
+    fun batchMarkAsDelivered(items: List<BankingItem>) {
+        viewModelScope.launch {
+            items.forEach { item ->
+                repository.updateBankingItem(
+                    item.copy(
+                        isDelivered = true,
+                        deliveryDate = System.currentTimeMillis()
+                    )
+                )
+            }
+        }
+    }
+
+    fun batchDeleteBankingItems(items: List<BankingItem>) {
+        viewModelScope.launch {
+            items.forEach { item ->
+                try {
+                    repository.addDeletedItemTracker(item.type, item.customerName, item.accountNumber)
+                    val adapter = moshi.adapter(BankingItem::class.java)
+                    val json = adapter.toJson(item)
+                    repository.insertRecycleBinItem(
+                        originalType = "BANKING_ITEM",
+                        originalId = item.id,
+                        title = item.customerName,
+                        subtitle = "${item.type} | A/C: ${item.accountNumber}",
+                        serializedData = json
+                    )
+                    repository.deleteBankingItem(item)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
+    }
+
+    private fun setupNetworkConnectivityObserver() {
+        try {
+            val cm = getApplication<Application>().getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
+            if (cm != null) {
+                val builder = android.net.NetworkRequest.Builder()
+                cm.registerNetworkCallback(builder.build(), object : android.net.ConnectivityManager.NetworkCallback() {
+                    override fun onAvailable(network: android.net.Network) {
+                        viewModelScope.launch {
+                            isNetworkConnected = true
+                            // Trigger automatic background synchronization when internet connection is active
+                            syncExistingDataToExcelInBackground()
+                            checkForUpdatesSilently()
+                        }
+                    }
+
+                    override fun onLost(network: android.net.Network) {
+                        viewModelScope.launch {
+                            isNetworkConnected = false
+                        }
+                    }
+                })
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 

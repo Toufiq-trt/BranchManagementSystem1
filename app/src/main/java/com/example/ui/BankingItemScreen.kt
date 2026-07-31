@@ -55,6 +55,11 @@ fun BankingItemScreen(
     var previewRows by remember { mutableStateOf<List<List<String>>?>(null) }
     var onConfirmDownload by remember { mutableStateOf<() -> Unit>({}) }
 
+    // Multi-Select & Letter Notice States
+    var isMultiSelectMode by remember { mutableStateOf(false) }
+    var selectedItemIds by remember { mutableStateOf(setOf<Int>()) }
+    var letterNoticeItem by remember { mutableStateOf<BankingItem?>(null) }
+
     // Bulk Importer Settings
     var showBulkImportDialog by remember { mutableStateOf(false) }
     var bulkImportType by remember { mutableStateOf("") } // "EXCEL", "PHOTO", "SHEETS", "PASTE"
@@ -139,11 +144,32 @@ fun BankingItemScreen(
             }
 
             if (viewModel.isLoggedIn) {
-                IconButton(
-                    onClick = { isAddingNew = !isAddingNew },
-                    colors = IconButtonDefaults.iconButtonColors(containerColor = GoldPrimary, contentColor = SlateDark)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(imageVector = if (isAddingNew) Icons.Default.Close else Icons.Default.Add, contentDescription = "Add")
+                    IconButton(
+                        onClick = {
+                            isMultiSelectMode = !isMultiSelectMode
+                            if (!isMultiSelectMode) selectedItemIds = emptySet()
+                        },
+                        colors = IconButtonDefaults.iconButtonColors(
+                            containerColor = if (isMultiSelectMode) GoldPrimary else MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = if (isMultiSelectMode) SlateDark else GoldPrimary
+                        )
+                    ) {
+                        Icon(
+                            imageVector = if (isMultiSelectMode) Icons.Default.ChecklistRtl else Icons.Default.Checklist,
+                            contentDescription = "Select Mode"
+                        )
+                    }
+
+                    IconButton(
+                        onClick = { isAddingNew = !isAddingNew },
+                        colors = IconButtonDefaults.iconButtonColors(containerColor = GoldPrimary, contentColor = SlateDark)
+                    ) {
+                        Icon(imageVector = if (isAddingNew) Icons.Default.Close else Icons.Default.Add, contentDescription = "Add")
+                    }
                 }
             }
         }
@@ -437,6 +463,93 @@ fun BankingItemScreen(
             )
         }
 
+        // Multi-Select Batch Operations Action Bar
+        if (isMultiSelectMode) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = SlateDark),
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        val isAllSelected = currentDisplayList.isNotEmpty() && selectedItemIds.size == currentDisplayList.size
+                        Checkbox(
+                            checked = isAllSelected,
+                            onCheckedChange = { checked ->
+                                selectedItemIds = if (checked) {
+                                    currentDisplayList.map { it.id }.toSet()
+                                } else {
+                                    emptySet()
+                                }
+                            },
+                            colors = CheckboxDefaults.colors(checkedColor = GoldPrimary, checkmarkColor = SlateDark)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "${selectedItemIds.size} Selected",
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            fontSize = 12.sp
+                        )
+                    }
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        if (selectedItemIds.isNotEmpty()) {
+                            // Deliver Selected
+                            Button(
+                                onClick = {
+                                    val itemsToDeliver = currentDisplayList.filter { it.id in selectedItemIds }
+                                    viewModel.batchMarkAsDelivered(itemsToDeliver)
+                                    selectedItemIds = emptySet()
+                                    isMultiSelectMode = false
+                                    android.widget.Toast.makeText(context, "${itemsToDeliver.size} items delivered!", android.widget.Toast.LENGTH_SHORT).show()
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary, contentColor = SlateDark),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                shape = RoundedCornerShape(6.dp)
+                            ) {
+                                Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Deliver (${selectedItemIds.size})", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+
+                            // Delete Selected
+                            Button(
+                                onClick = {
+                                    val itemsToDelete = currentDisplayList.filter { it.id in selectedItemIds }
+                                    viewModel.batchDeleteBankingItems(itemsToDelete)
+                                    selectedItemIds = emptySet()
+                                    isMultiSelectMode = false
+                                    android.widget.Toast.makeText(context, "${itemsToDelete.size} items moved to Recycle Bin!", android.widget.Toast.LENGTH_SHORT).show()
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = RedAccent, contentColor = Color.White),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                shape = RoundedCornerShape(6.dp)
+                            ) {
+                                Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Delete (${selectedItemIds.size})", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+
+                        IconButton(
+                            onClick = {
+                                isMultiSelectMode = false
+                                selectedItemIds = emptySet()
+                            },
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White, modifier = Modifier.size(16.dp))
+                        }
+                    }
+                }
+            }
+        }
+
         // Standardized Table Download Registry Row
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -600,7 +713,7 @@ fun BankingItemScreen(
                                         showDeleteButton = viewModel.isLoggedIn && viewModel.currentUser?.isToufiq == true,
                                         showDeliveryButton = viewModel.isLoggedIn,
                                         showMailedButton = viewModel.isLoggedIn && tabSelected == 1,
-                                        showDestructionButton = viewModel.isLoggedIn && tabSelected == 2,
+                                        showDestructionButton = viewModel.isLoggedIn && tabSelected == 2 && itemType != "DPS",
                                         onMarkDelivered = {
                                             viewModel.markAsDelivered(item)
                                         },
@@ -626,13 +739,26 @@ fun BankingItemScreen(
                     }
                 } else {
                     items(currentDisplayList, key = { it.id }) { item ->
+                        val daysStaying = ((now - item.receivedDate) / (1000L * 3600 * 24)).toInt().coerceAtLeast(0)
                         BankingItemRow(
                             item = item,
                             now = now,
                             showDeleteButton = viewModel.isLoggedIn && viewModel.currentUser?.isToufiq == true,
                             showDeliveryButton = viewModel.isLoggedIn,
                             showMailedButton = viewModel.isLoggedIn && tabSelected == 1,
-                            showDestructionButton = viewModel.isLoggedIn && tabSelected == 2,
+                            showDestructionButton = viewModel.isLoggedIn && tabSelected == 2 && itemType != "DPS",
+                            onGenerateLetter = if (tabSelected == 1 || daysStaying >= 30 || item.isLetterIssued) {
+                                { letterNoticeItem = item }
+                            } else null,
+                            isMultiSelectMode = isMultiSelectMode,
+                            isSelected = item.id in selectedItemIds,
+                            onToggleSelect = {
+                                selectedItemIds = if (item.id in selectedItemIds) {
+                                    selectedItemIds - item.id
+                                } else {
+                                    selectedItemIds + item.id
+                                }
+                            },
                             onMarkDelivered = {
                                 viewModel.markAsDelivered(item)
                             },
@@ -765,6 +891,23 @@ fun BankingItemScreen(
                 TextButton(onClick = { editingItem = null }) {
                     Text("Cancel", color = Color.White)
                 }
+            }
+        )
+    }
+
+    if (letterNoticeItem != null) {
+        CustomerNoticeLetterDialog(
+            item = letterNoticeItem!!,
+            onDismiss = { letterNoticeItem = null },
+            onGenerate = {
+                val targetItem = letterNoticeItem!!
+                com.example.util.PdfHelper.generateCustomerNoticeLetterPdf(
+                    context = context,
+                    fileName = "notice_letter_${targetItem.accountNumber}.pdf",
+                    item = targetItem
+                )
+                viewModel.markAsLetterIssued(targetItem)
+                android.widget.Toast.makeText(context, "Notice Letter generated successfully!", android.widget.Toast.LENGTH_SHORT).show()
             }
         )
     }
@@ -1174,6 +1317,10 @@ fun BankingItemRow(
     showDeliveryButton: Boolean,
     showMailedButton: Boolean = false,
     showDestructionButton: Boolean = false,
+    onGenerateLetter: (() -> Unit)? = null,
+    isMultiSelectMode: Boolean = false,
+    isSelected: Boolean = false,
+    onToggleSelect: (() -> Unit)? = null,
     onMarkDelivered: () -> Unit,
     onMarkDestroyed: () -> Unit,
     onMarkMailed: (() -> Unit)? = null,
@@ -1187,8 +1334,14 @@ fun BankingItemRow(
     val progress = if (daysLeft > 0) daysLeft / totalPeriod else 0f
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = isMultiSelectMode && onToggleSelect != null) {
+                onToggleSelect?.invoke()
+            },
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) GoldPrimary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant
+        ),
         shape = RoundedCornerShape(12.dp)
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
@@ -1197,9 +1350,22 @@ fun BankingItemRow(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    Text(text = item.customerName, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                    Text(text = "A/C: ${item.accountNumber}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    if (isMultiSelectMode && onToggleSelect != null) {
+                        Checkbox(
+                            checked = isSelected,
+                            onCheckedChange = { onToggleSelect() },
+                            colors = CheckboxDefaults.colors(checkedColor = GoldPrimary, checkmarkColor = SlateDark)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                    }
+                    Column {
+                        Text(text = item.customerName, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        Text(text = "A/C: ${item.accountNumber}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                    }
                 }
 
                 Row(
@@ -1209,12 +1375,12 @@ fun BankingItemRow(
                     if (item.isLetterIssued) {
                         Box(
                             modifier = Modifier
-                                .background(Color.Blue.copy(alpha = 0.15f), RoundedCornerShape(6.dp))
+                                .background(GreenAccent.copy(alpha = 0.18f), RoundedCornerShape(6.dp))
                                 .padding(horizontal = 8.dp, vertical = 4.dp)
                         ) {
                             Text(
-                                text = "LETTER ISSUED",
-                                color = Color(0xFF64B5F6),
+                                text = "GENERATED",
+                                color = GreenAccent,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold
                             )
@@ -1222,11 +1388,13 @@ fun BankingItemRow(
                     }
 
                     // Balance status badge
+                    val daysStaying = ((now - item.receivedDate) / (1000L * 3600 * 24)).toInt().coerceAtLeast(0)
                     Box(
                         modifier = Modifier
                             .background(
                                 if (item.isDelivered) GoldPrimary.copy(alpha = 0.15f)
                                 else if (item.isDestroyed) RedAccent.copy(alpha = 0.15f)
+                                else if (item.type == "DPS") GoldPrimary.copy(alpha = 0.15f)
                                 else if (daysLeft > 10) GreenAccent.copy(alpha = 0.15f)
                                 else RedAccent.copy(alpha = 0.15f),
                                 RoundedCornerShape(6.dp)
@@ -1236,9 +1404,10 @@ fun BankingItemRow(
                         Text(
                             text = if (item.isDelivered) "DELIVERED"
                                    else if (item.isDestroyed) "DESTRUCTED"
+                                   else if (item.type == "DPS") "STAYING IN VAULT: $daysStaying Days"
                                    else if (daysLeft > 0) "BALANCED: $daysLeft Days Left"
                                    else "90 DAYS COMPLETE",
-                            color = if (item.isDelivered) GoldPrimary else if (item.isDestroyed) RedAccent else if (daysLeft > 10) GreenAccent else RedAccent,
+                            color = if (item.isDelivered) GoldPrimary else if (item.isDestroyed) RedAccent else if (item.type == "DPS") GoldPrimary else if (daysLeft > 10) GreenAccent else RedAccent,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -1268,6 +1437,9 @@ fun BankingItemRow(
             Text(
                 text = if (item.isDelivered && item.deliveryDate > 0L) {
                     "Received: ${sdf.format(Date(item.receivedDate))} | Delivered: ${sdf.format(Date(item.deliveryDate))}"
+                } else if (item.type == "DPS") {
+                    val daysStayingInVault = ((now - item.receivedDate) / (1000L * 3600 * 24)).toInt().coerceAtLeast(0)
+                    "Received: ${sdf.format(Date(item.receivedDate))} | Days in Vault: $daysStayingInVault Days"
                 } else {
                     "Received: ${sdf.format(Date(item.receivedDate))} | Destruct limit: ${sdf.format(Date(item.destroyAfter))}"
                 },
@@ -1286,6 +1458,34 @@ fun BankingItemRow(
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                if (onGenerateLetter != null) {
+                    if (item.isLetterIssued) {
+                        Button(
+                            onClick = onGenerateLetter,
+                            colors = ButtonDefaults.buttonColors(containerColor = GreenAccent, contentColor = Color.White),
+                            shape = RoundedCornerShape(6.dp),
+                            modifier = Modifier.padding(end = 8.dp).testTag("regenerate_letter_button"),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                        ) {
+                            Icon(imageVector = Icons.Default.Description, contentDescription = "Regenerate", modifier = Modifier.size(15.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("REGENERATE LETTER", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    } else {
+                        Button(
+                            onClick = onGenerateLetter,
+                            colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary, contentColor = SlateDark),
+                            shape = RoundedCornerShape(6.dp),
+                            modifier = Modifier.padding(end = 8.dp).testTag("generate_letter_button"),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                        ) {
+                            Icon(imageVector = Icons.Default.Description, contentDescription = "Letter", modifier = Modifier.size(15.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("GENERATE LETTER", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+
                 if (showMailedButton && !item.isDelivered && !item.isDestroyed && !item.isLetterIssued && onMarkMailed != null) {
                     Button(
                         onClick = onMarkMailed,
@@ -1362,4 +1562,111 @@ fun BankingItemRow(
             }
         }
     }
+}
+
+@Composable
+fun CustomerNoticeLetterDialog(
+    item: BankingItem,
+    onDismiss: () -> Unit,
+    onGenerate: () -> Unit
+) {
+    val sdf = SimpleDateFormat("dd MMMM yyyy", Locale.getDefault())
+    val currentDateStr = sdf.format(Date())
+    val rxDateStr = if (item.receivedDate > 0) sdf.format(Date(item.receivedDate)) else "N/A"
+    val daysStaying = ((System.currentTimeMillis() - item.receivedDate) / (1000L * 3600 * 24)).toInt().coerceAtLeast(0)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Description, contentDescription = null, tint = GoldPrimary)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Official Notice Letter Preview", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = GoldPrimary)
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // Header Banner
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = SlateDark),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text("PUBALI BANK PLC", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 14.sp)
+                        Text("Chirirbandar Branch | Notice Ref: #${item.id}", fontSize = 11.sp, color = GoldPrimary)
+                        Text("Notice Date: $currentDateStr", fontSize = 11.sp, color = Color.LightGray)
+                    }
+                }
+
+                // Customer Info extracted fields
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("FETCHED CUSTOMER DATA", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = GoldPrimary)
+                        Text("• Name: ${item.customerName}", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                        Text("• Account No: ${item.accountNumber}", fontSize = 12.sp)
+                        Text("• Phone: ${item.phoneNumber}", fontSize = 12.sp)
+                        Text("• Address: ${if (item.address.isBlank()) "CHIRIRBANDAR" else item.address}", fontSize = 12.sp)
+                        Text("• Item Category: ${item.type.replace("_", " ")}", fontSize = 12.sp)
+                        Text("• Received Date: $rxDateStr", fontSize = 12.sp)
+                        Text("• Vault Duration: $daysStaying Days (Over 30 Days)", fontWeight = FontWeight.Bold, color = RedAccent, fontSize = 12.sp)
+                    }
+                }
+
+                // Formal Letter Text Preview
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("LETTER BODY PREVIEW:", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = GoldPrimary)
+                        Text("To: ${item.customerName}", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Text("A/C No: ${item.accountNumber} | Phone: ${item.phoneNumber}", fontSize = 11.sp, color = Color.Gray)
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                        Text(
+                            "Subject: Notice Regarding Uncollected ${item.type.replace("_", " ")}\n\n" +
+                            "Dear Valued Customer,\n" +
+                            "This is an official communication from Pubali Bank PLC regarding your requested ${item.type.replace("_", " ")} for Account Number ${item.accountNumber}.\n\n" +
+                            "The item was safely received at our branch on $rxDateStr and has been stored in our vault for over $daysStaying days.\n\n" +
+                            "In accordance with standard banking security protocols, items remaining uncollected after 90 days are scheduled for mandatory destruction or return.\n\n" +
+                            "You are kindly requested to visit our Chirirbandar branch during working hours with your original NID/Passport to collect your item.\n\n" +
+                            "Sincerely,\n" +
+                            "Branch Officer / Manager, Pubali Bank PLC",
+                            fontSize = 11.sp,
+                            lineHeight = 16.sp
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onGenerate()
+                    onDismiss()
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary, contentColor = SlateDark),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Icon(Icons.Default.PictureAsPdf, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Generate PDF Letter", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }

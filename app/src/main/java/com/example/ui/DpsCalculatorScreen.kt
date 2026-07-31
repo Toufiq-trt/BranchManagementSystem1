@@ -1,6 +1,7 @@
 package com.example.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -8,18 +9,23 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Calculate
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.theme.*
+import com.example.util.PdfHelper
 import java.text.DecimalFormat
 import kotlin.math.pow
 
@@ -29,10 +35,13 @@ fun DpsCalculatorScreen(
     viewModel: BankingViewModel,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     var monthlyDepositText by remember { mutableStateOf("") }
     var interestText by remember { mutableStateOf("7.5") }
     var tenureText by remember { mutableStateOf("5") } // Default 5 years
     var taxReturnYes by remember { mutableStateOf(true) } // true = Yes (10% tax), false = No (15% tax)
+
+    var showChartDialog by remember { mutableStateOf(false) }
 
     val monthlyDeposit = monthlyDepositText.toDoubleOrNull() ?: 0.0
     val interestRate = interestText.toDoubleOrNull() ?: 0.0
@@ -61,6 +70,40 @@ fun DpsCalculatorScreen(
 
     val formatter = DecimalFormat("#,##,##0.00")
 
+    // Chart Data Pre-computation
+    fun calcDpsMat(p: Double, rate: Double, years: Int): Double {
+        val count = years * 12
+        val rateMonthly = (rate / 12.0) / 100.0
+        return if (rateMonthly > 0) p * ((1.0 + rateMonthly).pow(count.toDouble()) - 1.0) / rateMonthly * (1.0 + rateMonthly) else p * count
+    }
+
+    val depositAmounts = (500..10000 step 500).toList()
+    val headers = listOf("Deposit (Tk)", "3Y (10%)", "3Y (10.5%)", "5Y (10%)", "5Y (10.5%)", "7Y (10%)", "7Y (10.5%)", "10Y (10%)", "10Y (10.5%)")
+
+    val chartRows = depositAmounts.map { dep ->
+        val p = dep.toDouble()
+        val v3g = calcDpsMat(p, 10.0, 3)
+        val v3w = calcDpsMat(p, 10.5, 3)
+        val v5g = calcDpsMat(p, 10.0, 5)
+        val v5w = calcDpsMat(p, 10.5, 5)
+        val v7g = calcDpsMat(p, 10.0, 7)
+        val v7w = calcDpsMat(p, 10.5, 7)
+        val v10g = calcDpsMat(p, 10.0, 10)
+        val v10w = calcDpsMat(p, 10.5, 10)
+
+        listOf(
+            "Tk ${formatter.format(p)}",
+            formatter.format(v3g),
+            formatter.format(v3w),
+            formatter.format(v5g),
+            formatter.format(v5w),
+            formatter.format(v7g),
+            formatter.format(v7w),
+            formatter.format(v10g),
+            formatter.format(v10w)
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -82,6 +125,15 @@ fun DpsCalculatorScreen(
                         )
                     }
                 },
+                actions = {
+                    IconButton(onClick = { showChartDialog = true }) {
+                        Icon(
+                            imageVector = Icons.Default.BarChart,
+                            contentDescription = "DPS Chart PDF",
+                            tint = GoldPrimary
+                        )
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = SlateDark),
                 windowInsets = WindowInsets(0.dp)
             )
@@ -91,10 +143,9 @@ fun DpsCalculatorScreen(
         Column(
             modifier = modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .padding(top = innerPadding.calculateTopPadding(), start = 16.dp, end = 16.dp, bottom = 16.dp)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // Introductory signboard removed as requested
             
@@ -252,6 +303,113 @@ fun DpsCalculatorScreen(
                     OutputRow("Pocket Amount:", "৳ ${formatter.format(pocketAmount)}", color = GoldLight, isBold = true, fontSize = 16.sp)
                 }
             }
+        }
+
+        if (showChartDialog) {
+            AlertDialog(
+                onDismissRequest = { showChartDialog = false },
+                title = {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("DPS MATURITY CHART", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = GoldPrimary)
+                        IconButton(onClick = { showChartDialog = false }) {
+                            Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.Gray)
+                        }
+                    }
+                },
+                text = {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            "Monthly Deposit Range: Tk 500 - Tk 10,000 (General 10% vs Women 10.5%)",
+                            fontSize = 11.sp,
+                            color = Color.Gray
+                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(320.dp)
+                                .background(Color(0xFF0F172A), RoundedCornerShape(8.dp))
+                                .padding(4.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .horizontalScroll(rememberScrollState())
+                                    .verticalScroll(rememberScrollState())
+                            ) {
+                                // Header Row
+                                Row(
+                                    modifier = Modifier
+                                        .background(SlateDark)
+                                        .padding(vertical = 6.dp, horizontal = 4.dp)
+                                ) {
+                                    headers.forEach { h ->
+                                        Text(
+                                            text = h,
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = GoldLight,
+                                            modifier = Modifier.width(80.dp),
+                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                        )
+                                    }
+                                }
+                                HorizontalDivider(color = Color.Gray.copy(alpha = 0.3f))
+                                // Data Rows
+                                chartRows.forEachIndexed { idx, row ->
+                                    Row(
+                                        modifier = Modifier
+                                            .background(if (idx % 2 == 1) Color.White.copy(alpha = 0.05f) else Color.Transparent)
+                                            .padding(vertical = 4.dp, horizontal = 4.dp)
+                                    ) {
+                                        row.forEachIndexed { cIdx, cell ->
+                                            Text(
+                                                text = cell,
+                                                fontSize = 9.sp,
+                                                color = if (cIdx == 0) GoldPrimary else Color.White,
+                                                fontWeight = if (cIdx == 0) FontWeight.Bold else FontWeight.Normal,
+                                                modifier = Modifier.width(80.dp),
+                                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showChartDialog = false
+                            PdfHelper.generateCustomChartPdf(
+                                context = context,
+                                fileName = "DPS_Maturity_Chart.pdf",
+                                chartTitle = "DPS SAVINGS MATURITY CHART",
+                                chartSubtitle = "General Rate 10.00% p.a. vs Women Rate 10.50% p.a. (Tk 500 - Tk 10,000)",
+                                headers = headers,
+                                rows = chartRows
+                            )
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary, contentColor = SlateDark)
+                    ) {
+                        Icon(Icons.Default.PictureAsPdf, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Download PDF Chart", fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showChartDialog = false }) {
+                        Text("Close")
+                    }
+                }
+            )
         }
     }
 }
