@@ -67,7 +67,7 @@ fun FdCalculatorScreen(
 
     // Chart Data Pre-computation (Tk 1 Lac to Tk 10 Lac)
     val fdAmounts = (100000..1000000 step 100000).toList()
-    val headers = listOf("FDR Amount", "89D Gross", "89D Net (10%)", "89D Net (15%)", "1Y Gross", "1Y Net (10%)", "1Y Net (15%)", "1Y Monthly (10%)")
+    val headers = listOf("FDR Amount", "89D Gross", "89D Net (10%)", "89D Net (15%)", "1Y Gross", "1Y M.Net(10%)", "1Y M.Net(15%)", "6Y8M Double")
 
     val chartRows = fdAmounts.map { principal ->
         val p = principal.toDouble()
@@ -76,9 +76,10 @@ fun FdCalculatorScreen(
         val n89_15 = g89 * 0.85
 
         val g1y = p * 0.11
-        val n1y_10 = g1y * 0.90
-        val n1y_15 = g1y * 0.85
-        val m1y_10 = n1y_10 / 12.0
+        val m1y_10 = (g1y * 0.90) / 12.0
+        val m1y_15 = (g1y * 0.85) / 12.0
+
+        val doubleMoney = p * 2.0
 
         listOf(
             "Tk ${formatter.format(p)}",
@@ -86,9 +87,9 @@ fun FdCalculatorScreen(
             formatter.format(n89_10),
             formatter.format(n89_15),
             formatter.format(g1y),
-            formatter.format(n1y_10),
-            formatter.format(n1y_15),
-            formatter.format(m1y_10)
+            formatter.format(m1y_10),
+            formatter.format(m1y_15),
+            "Tk ${formatter.format(doubleMoney)}"
         )
     }
 
@@ -304,7 +305,7 @@ fun FdCalculatorScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("FD PROFIT CHART", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = GoldPrimary)
+                        Text("FD PROFIT GROSS CHART", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = GoldPrimary)
                         IconButton(onClick = { showChartDialog = false }) {
                             Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.Gray)
                         }
@@ -316,7 +317,7 @@ fun FdCalculatorScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            "Fixed Deposit Profit Breakdown (Tk 1 Lac - Tk 10 Lac)",
+                            "89 Days (8%), 1 Year Monthly Net (11%), & Double Money (6Y 8M)",
                             fontSize = 11.sp,
                             color = Color.Gray
                         )
@@ -327,19 +328,36 @@ fun FdCalculatorScreen(
                                 .background(Color(0xFF0F172A), RoundedCornerShape(8.dp))
                                 .padding(4.dp)
                         ) {
+                            WatermarkOverlay()
                             Column(
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .horizontalScroll(rememberScrollState())
                                     .verticalScroll(rememberScrollState())
                             ) {
+                                // Category Banner Row
+                                Row(
+                                    modifier = Modifier
+                                        .background(Color(0xFF1E293B))
+                                        .padding(vertical = 4.dp, horizontal = 2.dp)
+                                ) {
+                                    Text("FDR AMOUNT", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.LightGray, modifier = Modifier.width(85.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                    Spacer(modifier = Modifier.width(2.dp))
+                                    Text("--- 89 DAYS SPECIAL FDR (8%) ---", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = GoldPrimary, modifier = Modifier.width(255.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                    Spacer(modifier = Modifier.width(2.dp))
+                                    Text("--- 1 YEAR FDR (11%) ---", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = GreenAccent, modifier = Modifier.width(255.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                    Spacer(modifier = Modifier.width(2.dp))
+                                    Text("6Y 8M DOUBLE", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = GoldLight, modifier = Modifier.width(90.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                }
+                                HorizontalDivider(color = GoldPrimary.copy(alpha = 0.5f), thickness = 1.dp)
+
                                 // Header Row
                                 Row(
                                     modifier = Modifier
                                         .background(SlateDark)
                                         .padding(vertical = 6.dp, horizontal = 4.dp)
                                 ) {
-                                    headers.forEach { h ->
+                                    headers.forEachIndexed { hIdx, h ->
                                         Text(
                                             text = h,
                                             fontSize = 9.sp,
@@ -351,6 +369,7 @@ fun FdCalculatorScreen(
                                     }
                                 }
                                 HorizontalDivider(color = Color.Gray.copy(alpha = 0.3f))
+
                                 // Data Rows
                                 chartRows.forEachIndexed { idx, row ->
                                     Row(
@@ -362,8 +381,8 @@ fun FdCalculatorScreen(
                                             Text(
                                                 text = cell,
                                                 fontSize = 9.sp,
-                                                color = if (cIdx == 0) GoldPrimary else Color.White,
-                                                fontWeight = if (cIdx == 0) FontWeight.Bold else FontWeight.Normal,
+                                                color = if (cIdx == 0) GoldPrimary else if (cIdx == 7) GoldLight else Color.White,
+                                                fontWeight = if (cIdx == 0 || cIdx == 7) FontWeight.Bold else FontWeight.Normal,
                                                 modifier = Modifier.width(85.dp),
                                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
                                             )
@@ -372,6 +391,9 @@ fun FdCalculatorScreen(
                                 }
                             }
                         }
+
+                        // Bottom Right Officer Contact Block
+                        OfficerContactFooter(initialMessage = "Assalamualaikum Toufiq Vai.. Ami ekta DPS/FD Korte Chai.")
                     }
                 },
                 confirmButton = {
@@ -380,11 +402,12 @@ fun FdCalculatorScreen(
                             showChartDialog = false
                             PdfHelper.generateCustomChartPdf(
                                 context = context,
-                                fileName = "FD_Profit_Chart.pdf",
-                                chartTitle = "FIXED DEPOSIT (FDR) PROFIT CHART",
-                                chartSubtitle = "89 Days Special FDR (8.00% p.a.) vs 1 Year FDR (11.00% p.a.)",
+                                fileName = "FD_Profit_Gross_Chart.pdf",
+                                chartTitle = "FIXED DEPOSIT (FDR) PROFIT GROSS CHART",
+                                chartSubtitle = "89 Days Special FDR (8%), 1 Year Monthly Net (11%), & 6Y 8M Double Money",
                                 headers = headers,
-                                rows = chartRows
+                                rows = chartRows,
+                                thickBorderColumns = listOf(0, 3, 6, 7)
                             )
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary, contentColor = SlateDark)

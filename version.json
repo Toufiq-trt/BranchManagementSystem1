@@ -1,6 +1,6 @@
 {
-  "versionCode": 26,
-  "versionName": "1.26",
+  "versionCode": 27,
+  "versionName": "1.27",
   "apkUrl": "https://raw.githubusercontent.com/Toufiq-trt/BranchManagementSystem1/main/ToufiqBranch.apk",
-  "releaseNotes": "Fixed startup crash by disabling R8/ProGuard class minification and ensured complete compatibility with all devices."
+  "releaseNotes": "Updated Loan Repayment Chart (constant 9.90% rate for 3Y, 5Y, 7Y, 8Y, 10Y), FD Profit Gross Chart (89D, 1Y, 6Y8M Double Money), and DPS Chart (Light Pink Women columns & year category borders) with diagonal watermark and officer WhatsApp contact block."
 }

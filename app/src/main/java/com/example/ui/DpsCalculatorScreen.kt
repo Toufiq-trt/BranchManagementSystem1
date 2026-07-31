@@ -326,7 +326,7 @@ fun DpsCalculatorScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            "Monthly Deposit Range: Tk 500 - Tk 10,000 (General 10% vs Women 10.5%)",
+                            "Monthly Deposit Range: Tk 500 - Tk 10,000 (General 10% vs Women 10.5% in Light Pink)",
                             fontSize = 11.sp,
                             color = Color.Gray
                         )
@@ -337,30 +337,51 @@ fun DpsCalculatorScreen(
                                 .background(Color(0xFF0F172A), RoundedCornerShape(8.dp))
                                 .padding(4.dp)
                         ) {
+                            WatermarkOverlay()
                             Column(
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .horizontalScroll(rememberScrollState())
                                     .verticalScroll(rememberScrollState())
                             ) {
+                                // Year Category Banner Row
+                                Row(
+                                    modifier = Modifier
+                                        .background(Color(0xFF1E293B))
+                                        .padding(vertical = 4.dp, horizontal = 2.dp)
+                                ) {
+                                    Text("DEPOSIT", fontSize = 9.5.sp, fontWeight = FontWeight.Bold, color = Color.LightGray, modifier = Modifier.width(90.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                    Spacer(modifier = Modifier.width(2.dp))
+                                    Text("--- 3 YEARS ---", fontSize = 9.5.sp, fontWeight = FontWeight.Bold, color = GoldPrimary, modifier = Modifier.width(190.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                    Spacer(modifier = Modifier.width(2.dp))
+                                    Text("--- 5 YEARS ---", fontSize = 9.5.sp, fontWeight = FontWeight.Bold, color = GreenAccent, modifier = Modifier.width(190.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                    Spacer(modifier = Modifier.width(2.dp))
+                                    Text("--- 7 YEARS ---", fontSize = 9.5.sp, fontWeight = FontWeight.Bold, color = GoldLight, modifier = Modifier.width(190.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                    Spacer(modifier = Modifier.width(2.dp))
+                                    Text("--- 10 YEARS ---", fontSize = 9.5.sp, fontWeight = FontWeight.Bold, color = Color(0xFF38BDF8), modifier = Modifier.width(190.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                }
+                                HorizontalDivider(color = GoldPrimary.copy(alpha = 0.5f), thickness = 1.dp)
+
                                 // Header Row
                                 Row(
                                     modifier = Modifier
                                         .background(SlateDark)
                                         .padding(vertical = 6.dp, horizontal = 4.dp)
                                 ) {
-                                    headers.forEach { h ->
+                                    headers.forEachIndexed { hIdx, h ->
+                                        val isWomenHeader = hIdx in listOf(2, 4, 6, 8)
                                         Text(
                                             text = h,
-                                            fontSize = 9.sp,
+                                            fontSize = 9.5.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = GoldLight,
-                                            modifier = Modifier.width(80.dp),
+                                            color = if (isWomenHeader) Color(0xFFFFB6C1) else GoldLight,
+                                            modifier = Modifier.width(90.dp),
                                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
                                         )
                                     }
                                 }
                                 HorizontalDivider(color = Color.Gray.copy(alpha = 0.3f))
+
                                 // Data Rows
                                 chartRows.forEachIndexed { idx, row ->
                                     Row(
@@ -369,19 +390,34 @@ fun DpsCalculatorScreen(
                                             .padding(vertical = 4.dp, horizontal = 4.dp)
                                     ) {
                                         row.forEachIndexed { cIdx, cell ->
-                                            Text(
-                                                text = cell,
-                                                fontSize = 9.sp,
-                                                color = if (cIdx == 0) GoldPrimary else Color.White,
-                                                fontWeight = if (cIdx == 0) FontWeight.Bold else FontWeight.Normal,
-                                                modifier = Modifier.width(80.dp),
-                                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                                            )
+                                            val isWomenCol = cIdx in listOf(2, 4, 6, 8)
+                                            Box(
+                                                modifier = Modifier
+                                                    .width(90.dp)
+                                                    .background(
+                                                        if (isWomenCol) Color(0xFFFFD1DC).copy(alpha = 0.25f)
+                                                        else Color.Transparent,
+                                                        RoundedCornerShape(2.dp)
+                                                    )
+                                                    .padding(vertical = 2.dp)
+                                            ) {
+                                                Text(
+                                                    text = cell,
+                                                    fontSize = 10.5.sp,
+                                                    color = if (cIdx == 0) GoldPrimary else if (isWomenCol) Color(0xFFFFB6C1) else Color.White,
+                                                    fontWeight = if (cIdx == 0 || isWomenCol) FontWeight.Bold else FontWeight.Normal,
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                                )
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
+
+                        // Bottom Right Officer Contact Block
+                        OfficerContactFooter(initialMessage = "Assalamualaikum Toufiq Vai.. Ami ekta DPS/FD Korte Chai.")
                     }
                 },
                 confirmButton = {
@@ -394,7 +430,9 @@ fun DpsCalculatorScreen(
                                 chartTitle = "DPS SAVINGS MATURITY CHART",
                                 chartSubtitle = "General Rate 10.00% p.a. vs Women Rate 10.50% p.a. (Tk 500 - Tk 10,000)",
                                 headers = headers,
-                                rows = chartRows
+                                rows = chartRows,
+                                highlightColumns = listOf(2, 4, 6, 8),
+                                thickBorderColumns = listOf(0, 2, 4, 6, 8)
                             )
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary, contentColor = SlateDark)

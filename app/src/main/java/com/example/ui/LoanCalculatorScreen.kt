@@ -37,14 +37,14 @@ fun LoanCalculatorScreen(
 ) {
     val context = LocalContext.current
     var amountText by remember { mutableStateOf("") }
-    var interestText by remember { mutableStateOf("9.0") }
+    var interestText by remember { mutableStateOf("9.90") }
     var tenureText by remember { mutableStateOf("5") } // Default 5 years
     var tenureInYears by remember { mutableStateOf(true) } // true = Years, false = Months
 
     var showChartDialog by remember { mutableStateOf(false) }
 
     val amount = amountText.toDoubleOrNull() ?: 0.0
-    val interestRate = interestText.toDoubleOrNull() ?: 0.0
+    val interestRate = interestText.toDoubleOrNull() ?: 9.90
     val tenureVal = tenureText.toIntOrNull() ?: 0
 
     val n = if (tenureInYears) tenureVal * 12 else tenureVal
@@ -65,7 +65,7 @@ fun LoanCalculatorScreen(
 
     val formatter = DecimalFormat("#,##,##0.00")
 
-    // Chart Data Pre-computation (Tk 1 Lac to Tk 10 Lac)
+    // Chart Data Pre-computation (Tk 1 Lac to Tk 10 Lac, 15 Lac, 20 Lac @ 9.90% Constant Rate)
     fun calcEmi(principal: Double, ratePa: Double, months: Int): Double {
         val rateMonthly = (ratePa / 12.0) / 100.0
         if (principal <= 0 || months <= 0) return 0.0
@@ -74,30 +74,24 @@ fun LoanCalculatorScreen(
         return (principal * rateMonthly * base) / (base - 1.0)
     }
 
-    val loanAmounts = (100000..1000000 step 100000).toList()
-    val headers = listOf("Loan Amount", "1Y EMI (9%)", "1Y EMI (10%)", "3Y EMI (9%)", "3Y EMI (10%)", "5Y EMI (9%)", "5Y EMI (10%)", "5Y Total (9%)")
+    val loanAmounts = (100000..1000000 step 100000).toList() + listOf(1500000, 2000000)
+    val headers = listOf("Loan Amount", "3Y EMI (9.9%)", "5Y EMI (9.9%)", "7Y EMI (9.9%)", "8Y EMI (9.9%)", "10Y EMI (9.9%)")
 
     val chartRows = loanAmounts.map { principal ->
         val p = principal.toDouble()
-        val emi1y9 = calcEmi(p, 9.0, 12)
-        val emi1y10 = calcEmi(p, 10.0, 12)
-
-        val emi3y9 = calcEmi(p, 9.0, 36)
-        val emi3y10 = calcEmi(p, 10.0, 36)
-
-        val emi5y9 = calcEmi(p, 9.0, 60)
-        val emi5y10 = calcEmi(p, 10.0, 60)
-        val tot5y9 = emi5y9 * 60.0
+        val emi3y = calcEmi(p, 9.90, 36)
+        val emi5y = calcEmi(p, 9.90, 60)
+        val emi7y = calcEmi(p, 9.90, 84)
+        val emi8y = calcEmi(p, 9.90, 96)
+        val emi10y = calcEmi(p, 9.90, 120)
 
         listOf(
             "Tk ${formatter.format(p)}",
-            formatter.format(emi1y9),
-            formatter.format(emi1y10),
-            formatter.format(emi3y9),
-            formatter.format(emi3y10),
-            formatter.format(emi5y9),
-            formatter.format(emi5y10),
-            formatter.format(tot5y9)
+            formatter.format(emi3y),
+            formatter.format(emi5y),
+            formatter.format(emi7y),
+            formatter.format(emi8y),
+            formatter.format(emi10y)
         )
     }
 
@@ -330,7 +324,7 @@ fun LoanCalculatorScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("LOAN REPAYMENT CHART", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = GoldPrimary)
+                        Text("LOAN REPAYMENT CHART (9.90%)", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = GoldPrimary)
                         IconButton(onClick = { showChartDialog = false }) {
                             Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.Gray)
                         }
@@ -342,17 +336,18 @@ fun LoanCalculatorScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            "Loan EMI & Repayment Chart (Tk 1 Lac - Tk 10 Lac)",
+                            "EMI calculated at constant 9.90% rate for 3Y, 5Y, 7Y, 8Y, 10Y",
                             fontSize = 11.sp,
                             color = Color.Gray
                         )
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(320.dp)
+                                .height(300.dp)
                                 .background(Color(0xFF0F172A), RoundedCornerShape(8.dp))
                                 .padding(4.dp)
                         ) {
+                            WatermarkOverlay()
                             Column(
                                 modifier = Modifier
                                     .fillMaxSize()
@@ -368,10 +363,10 @@ fun LoanCalculatorScreen(
                                     headers.forEach { h ->
                                         Text(
                                             text = h,
-                                            fontSize = 9.sp,
+                                            fontSize = 9.5.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = GoldLight,
-                                            modifier = Modifier.width(85.dp),
+                                            modifier = Modifier.width(95.dp),
                                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
                                         )
                                     }
@@ -382,15 +377,15 @@ fun LoanCalculatorScreen(
                                     Row(
                                         modifier = Modifier
                                             .background(if (idx % 2 == 1) Color.White.copy(alpha = 0.05f) else Color.Transparent)
-                                            .padding(vertical = 4.dp, horizontal = 4.dp)
+                                            .padding(vertical = 5.dp, horizontal = 4.dp)
                                     ) {
                                         row.forEachIndexed { cIdx, cell ->
                                             Text(
                                                 text = cell,
-                                                fontSize = 9.sp,
+                                                fontSize = 9.5.sp,
                                                 color = if (cIdx == 0) GoldPrimary else Color.White,
                                                 fontWeight = if (cIdx == 0) FontWeight.Bold else FontWeight.Normal,
-                                                modifier = Modifier.width(85.dp),
+                                                modifier = Modifier.width(95.dp),
                                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
                                             )
                                         }
@@ -398,6 +393,9 @@ fun LoanCalculatorScreen(
                                 }
                             }
                         }
+
+                        // Bottom Right Officer Contact Block
+                        OfficerContactFooter(initialMessage = "Assalamualaikum Toufiq Vai.. Ami ekta DPS/FD Korte Chai.")
                     }
                 },
                 confirmButton = {
@@ -406,11 +404,12 @@ fun LoanCalculatorScreen(
                             showChartDialog = false
                             PdfHelper.generateCustomChartPdf(
                                 context = context,
-                                fileName = "Loan_Repayment_Chart.pdf",
-                                chartTitle = "LOAN EMI & REPAYMENT SCHEDULE CHART",
-                                chartSubtitle = "Comparison across 1Y, 3Y, 5Y Tenures (9% & 10% Rates)",
+                                fileName = "Loan_Repayment_Chart_9.90.pdf",
+                                chartTitle = "LOAN REPAYMENT SCHEDULE CHART (9.90%)",
+                                chartSubtitle = "Constant 9.90% Interest Rate for 3Y, 5Y, 7Y, 8Y, 10Y Tenures",
                                 headers = headers,
-                                rows = chartRows
+                                rows = chartRows,
+                                thickBorderColumns = listOf(0, 1, 2, 3, 4, 5)
                             )
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary, contentColor = SlateDark)

@@ -223,7 +223,8 @@ object PdfHelper {
     }
 
     /**
-     * Generates a polished financial chart PDF with responsive column widths and landscape support.
+     * Generates a polished financial chart PDF with responsive column widths, landscape support,
+     * diagonal watermark, highlighted columns, segment category borders, and official contact footer.
      */
     fun generateCustomChartPdf(
         context: Context,
@@ -231,7 +232,9 @@ object PdfHelper {
         chartTitle: String,
         chartSubtitle: String,
         headers: List<String>,
-        rows: List<List<String>>
+        rows: List<List<String>>,
+        highlightColumns: List<Int> = emptyList(),
+        thickBorderColumns: List<Int> = emptyList()
     ) {
         try {
             val isLandscape = headers.size > 5
@@ -281,6 +284,11 @@ object PdfHelper {
                 style = Paint.Style.FILL
             }
 
+            val pinkHighlightPaint = Paint().apply {
+                color = Color.parseColor("#FFF0F5") // Light Pink for Women column
+                style = Paint.Style.FILL
+            }
+
             val cellTextPaint = Paint().apply {
                 color = Color.BLACK
                 textSize = 8f
@@ -293,16 +301,72 @@ object PdfHelper {
                 strokeWidth = 0.8f
             }
 
+            val thickBorderPaint = Paint().apply {
+                color = Color.parseColor("#0F172A") // Dark Slate thick border
+                style = Paint.Style.STROKE
+                strokeWidth = 2.2f
+            }
+
             val footerPaint = Paint().apply {
                 color = Color.GRAY
                 textSize = 8f
                 typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
             }
 
+            val officerBoldPaint = Paint().apply {
+                color = Color.BLACK
+                textSize = 8f
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                textAlign = Paint.Align.RIGHT
+            }
+
+            val officerNormalPaint = Paint().apply {
+                color = Color.DKGRAY
+                textSize = 7.5f
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+                textAlign = Paint.Align.RIGHT
+            }
+
+            val officerGoldPaint = Paint().apply {
+                color = Color.parseColor("#B8860B")
+                textSize = 8f
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                textAlign = Paint.Align.RIGHT
+            }
+
             var currentPageNumber = 1
             var pageInfo = PdfDocument.PageInfo.Builder(pageWidth, pageHeight, currentPageNumber).create()
             var page = pdfDocument.startPage(pageInfo)
             var canvas = page.canvas
+
+            fun drawWatermark(currentCanvas: Canvas) {
+                currentCanvas.save()
+                val wmPaint = Paint().apply {
+                    color = Color.argb(32, 184, 134, 11) // Soft semi-transparent gold
+                    textSize = 24f
+                    typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                    textAlign = Paint.Align.CENTER
+                }
+                currentCanvas.rotate(-25f, pageWidth / 2f, pageHeight / 2f)
+                currentCanvas.drawText("For FD and DPS", pageWidth / 2f, pageHeight / 2f - 15f, wmPaint)
+                currentCanvas.drawText("WhatsApp on : 01517836078", pageWidth / 2f, pageHeight / 2f + 20f, wmPaint)
+                currentCanvas.restore()
+            }
+
+            fun drawOfficerBlock(currentCanvas: Canvas) {
+                val rightX = (pageWidth - 30).toFloat()
+                var blockY = (pageHeight - 75).toFloat()
+
+                currentCanvas.drawText("Md Toufiqur Rahman (Toufiq)", rightX, blockY, officerGoldPaint)
+                blockY += 10f
+                currentCanvas.drawText("Trainee Assistant Officer", rightX, blockY, officerNormalPaint)
+                blockY += 10f
+                currentCanvas.drawText("Shimanto Bank PLC.", rightX, blockY, officerBoldPaint)
+                blockY += 10f
+                currentCanvas.drawText("Chirirbandar Branch, Dinajpur.", rightX, blockY, officerNormalPaint)
+                blockY += 10f
+                currentCanvas.drawText("WhatsApp: 01517836078", rightX, blockY, officerBoldPaint)
+            }
 
             fun drawFooter(currentCanvas: Canvas) {
                 val footerY = (pageHeight - 20).toFloat()
@@ -318,6 +382,8 @@ object PdfHelper {
                 val pageStr = "Page $currentPageNumber"
                 val pageStrWidth = footerPaint.measureText(pageStr)
                 currentCanvas.drawText(pageStr, pageWidth - startX - pageStrWidth, footerY, footerPaint)
+
+                drawOfficerBlock(currentCanvas)
             }
 
             fun drawHeader(currentCanvas: Canvas) {
@@ -332,12 +398,13 @@ object PdfHelper {
                 currentCanvas.drawText(chartSubtitle, (pageWidth - stWidth) / 2f, 66f, subtitlePaint)
             }
 
+            drawWatermark(canvas)
             drawHeader(canvas)
 
             var y = startY
             val headerRowHeight = 24f
             val dataRowHeight = 18f
-            val pageBottomLimit = (pageHeight - 40).toFloat()
+            val pageBottomLimit = (pageHeight - 85).toFloat() // Leave room for officer contact block at bottom right
 
             fun drawTableRow(currentCanvas: Canvas, currentY: Float, cellValues: List<String>, isHeader: Boolean, isAlt: Boolean) {
                 val rowHeight = if (isHeader) headerRowHeight else dataRowHeight
@@ -351,7 +418,19 @@ object PdfHelper {
 
                 for (i in cellValues.indices) {
                     val text = cellValues.getOrElse(i) { "" }
+
+                    // Fill cell background if highlighted column (e.g., Women DPS columns)
+                    if (!isHeader && i in highlightColumns) {
+                        currentCanvas.drawRect(x, currentY, x + colWidth, currentY + rowHeight, pinkHighlightPaint)
+                    }
+
+                    // Standard cell border
                     currentCanvas.drawRect(x, currentY, x + colWidth, currentY + rowHeight, borderPaint)
+
+                    // Draw thick vertical segment border if specified
+                    if (i in thickBorderColumns) {
+                        currentCanvas.drawLine(x + colWidth, currentY, x + colWidth, currentY + rowHeight, thickBorderPaint)
+                    }
 
                     val p = if (isHeader) headerTextPaint else cellTextPaint
                     val truncated = getTruncatedText(text, p, colWidth - 4f)
@@ -379,6 +458,7 @@ object PdfHelper {
                     page = pdfDocument.startPage(pageInfo)
                     canvas = page.canvas
 
+                    drawWatermark(canvas)
                     drawHeader(canvas)
                     y = startY
                     drawTableRow(canvas, y, headers, isHeader = true, isAlt = false)
