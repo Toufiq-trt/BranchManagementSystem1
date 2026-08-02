@@ -19,7 +19,8 @@ data class BankingItem(
     val isDelivered: Boolean = false,
     val deliveryDate: Long = 0L,
     val isLetterIssued: Boolean = false,
-    val isDemo: Boolean = false
+    val isDemo: Boolean = false,
+    val regNo: String = ""
 )
 
 @Entity(tableName = "quantity_logs")

@@ -398,7 +398,7 @@ fun UniversalSearchResultsView(viewModel: BankingViewModel) {
                                 // Display Specific Fields
                                 Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                                     Text("Account No: ${item.accountNumber}", fontSize = 12.sp, color = Color.LightGray)
-                                    Text("Phone Number: ${item.phoneNumber}", fontSize = 12.sp, color = Color.LightGray)
+                                    com.example.util.WhatsAppClickablePhone(phoneNumber = item.phoneNumber, itemType = item.type)
                                     Text("Address: ${item.address}", fontSize = 12.sp, color = Color.LightGray)
                                     Text("Received Date: ${res.receivedDate}", fontSize = 12.sp, color = Color.LightGray)
                                     Text("Staying Days: $stayingDays days in vault", fontSize = 12.sp, color = GoldLight, fontWeight = FontWeight.Bold)

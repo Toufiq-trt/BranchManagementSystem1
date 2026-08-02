@@ -190,6 +190,9 @@ class BankingViewModel(application: Application) : AndroidViewModel(application)
             
             // Sync all existing manually inputted / active data to the Excel sheet in the background
             syncExistingDataToExcelInBackground()
+
+            // Auto-sync all Google Sheets every time the app opens/starts
+            syncAllGoogleSheetsSilentlyOnStartup(application)
         }
     }
 
@@ -207,6 +210,7 @@ class BankingViewModel(application: Application) : AndroidViewModel(application)
         phone: String,
         remarks: String,
         dateOverride: Long? = null,
+        regNo: String = "",
         onDuplicate: (() -> Unit)? = null,
         onSuccess: (() -> Unit)? = null
     ) {
@@ -215,7 +219,7 @@ class BankingViewModel(application: Application) : AndroidViewModel(application)
             if (isDuplicate) {
                 onDuplicate?.invoke()
             } else {
-                val id = repository.insertBankingItem(type, name, acNo, address, phone, dateOverride, remarks)
+                val id = repository.insertBankingItem(type, name, acNo, address, phone, dateOverride, remarks, regNo = regNo)
                 // Retrieve the inserted item and sync to the cloud excel in the background
                 val received = dateOverride ?: System.currentTimeMillis()
                 val destroy = received + (90L * 24L * 60L * 60L * 1000L)
@@ -228,7 +232,8 @@ class BankingViewModel(application: Application) : AndroidViewModel(application)
                     phoneNumber = phone.trim(),
                     receivedDate = received,
                     destroyAfter = destroy,
-                    remarks = remarks.uppercase().trim()
+                    remarks = remarks.uppercase().trim(),
+                    regNo = regNo.trim()
                 )
                 sendItemToRemoteExcel(newItem)
                 onSuccess?.invoke()
@@ -450,6 +455,78 @@ class BankingViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    fun syncAllGoogleSheetsSilentlyOnStartup(context: android.content.Context) {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val categories = listOf("DEBIT_CARD", "CHEQUE_BOOK", "PIN", "DPS")
+            for (cat in categories) {
+                try {
+                    val urlString = when (cat) {
+                        "DEBIT_CARD" -> "https://docs.google.com/spreadsheets/d/1e_22aHpRoJYBe9J0ohT-PzwHmXGhrOtNlsQeOVHg67M/export?format=csv&gid=0"
+                        "CHEQUE_BOOK" -> "https://docs.google.com/spreadsheets/d/1cakIYc79gR-YVnqKe4-i8J95AEuIKa4Q/export?format=csv&gid=2027095460"
+                        "PIN" -> "https://docs.google.com/spreadsheets/d/1e_22aHpRoJYBe9J0ohT-PzwHmXGhrOtNlsQeOVHg67M/export?format=csv&gid=0"
+                        "DPS" -> "https://docs.google.com/spreadsheets/d/1Ah7wHvJDbzAF9VUJLlBs6YHKfInY6ZWeXlmyZtlUj9Q/export?format=csv&gid=0"
+                        else -> continue
+                    }
+                    val connection = java.net.URL(urlString).openConnection() as java.net.HttpURLConnection
+                    connection.connectTimeout = 8000
+                    connection.readTimeout = 8000
+                    connection.requestMethod = "GET"
+                    val csvText = connection.inputStream.bufferedReader().use { it.readText() }
+                    if (csvText.isNotBlank()) {
+                        val parsedRows = parseCsvText(csvText)
+                        if (parsedRows.size > 1) {
+                            for (idx in 1 until parsedRows.size) {
+                                val row = parsedRows[idx]
+                                val acNo = row.getOrNull(0)?.trim() ?: ""
+                                val name = row.getOrNull(1)?.uppercase()?.trim() ?: ""
+                                val phone = row.getOrNull(2)?.trim() ?: ""
+                                val receiveDateStr = row.getOrNull(3)?.trim() ?: ""
+                                val addressVal = row.getOrNull(4)?.uppercase()?.trim() ?: ""
+                                val deliveryVal = row.getOrNull(5)?.trim()?.lowercase() ?: ""
+                                val regNoVal = row.getOrNull(6)?.trim() ?: ""
+
+                                if (name.isBlank() || acNo.isBlank() || name.lowercase().contains("customer") || acNo.lowercase().contains("account")) continue
+                                if (repository.isItemDeleted(cat, name, acNo)) continue
+
+                                val isDeliveredInSheet = deliveryVal.isNotBlank() &&
+                                        deliveryVal != "no" &&
+                                        deliveryVal != "false" &&
+                                        deliveryVal != "pending" &&
+                                        deliveryVal != "undelivered" &&
+                                        deliveryVal != "none"
+
+                                val existingItem = repository.getDuplicateItem(cat, name, acNo)
+                                if (existingItem != null) {
+                                    if (!existingItem.isDelivered && isDeliveredInSheet) {
+                                        val updatedItem = existingItem.copy(
+                                            isDelivered = true,
+                                            deliveryDate = System.currentTimeMillis()
+                                        )
+                                        repository.updateBankingItem(updatedItem)
+                                    }
+                                } else {
+                                    val received = parseDateStringToMillis(receiveDateStr)
+                                    repository.insertBankingItem(
+                                        type = cat,
+                                        customerName = name,
+                                        accountNumber = acNo,
+                                        address = addressVal,
+                                        phoneNumber = phone,
+                                        receivedDateOverride = if (received > 0L) received else null,
+                                        remarks = if (isDeliveredInSheet) "DELIVERED" else "AUTO-SYNCED FROM SHEETS",
+                                        regNo = regNoVal
+                                    )
+                                }
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    // Ignore silent network errors on startup
+                }
+            }
+        }
+    }
+
     fun importBulkRows(
         type: String,
         parsedRows: List<List<String>>,
@@ -464,15 +541,48 @@ class BankingViewModel(application: Application) : AndroidViewModel(application)
             var insertedCount = 0
             var updatedCount = 0
 
-            for (idx in 1 until parsedRows.size) {
+            // Auto-detect column mapping from row 0 if header row exists
+            val headerRow = parsedRows.getOrNull(0)?.map { it.uppercase().trim() } ?: emptyList()
+            var acNoIdx = -1
+            var nameIdx = -1
+            var phoneIdx = -1
+            var dateIdx = -1
+            var addrIdx = -1
+            var dlvIdx = -1
+
+            headerRow.forEachIndexed { index, header ->
+                when {
+                    header.contains("AC") || header.contains("ACCOUNT") || header.contains("A/C") || header.contains("ACC") -> if (acNoIdx == -1) acNoIdx = index
+                    header.contains("NAME") || header.contains("CUSTOMER") || header.contains("TITLE") -> if (nameIdx == -1) nameIdx = index
+                    header.contains("PHONE") || header.contains("MOBILE") || header.contains("CONTACT") || header.contains("TEL") -> if (phoneIdx == -1) phoneIdx = index
+                    header.contains("DATE") || header.contains("RECEIVE") || header.contains("RX") -> if (dateIdx == -1) dateIdx = index
+                    header.contains("ADDRESS") || header.contains("ADDR") || header.contains("LOCATION") -> if (addrIdx == -1) addrIdx = index
+                    header.contains("DELIVER") || header.contains("STATUS") || header.contains("REMARK") -> if (dlvIdx == -1) dlvIdx = index
+                }
+            }
+
+            // Fallbacks for standard user column sequence: AC Number, Customer Name, Phone, Address
+            if (acNoIdx == -1) acNoIdx = 0
+            if (nameIdx == -1) nameIdx = 1
+            if (phoneIdx == -1) phoneIdx = 2
+            if (addrIdx == -1) {
+                addrIdx = if (dateIdx == 3) 4 else 3
+            }
+            if (dateIdx == -1) {
+                dateIdx = if (addrIdx == 3) 4 else 3
+            }
+            if (dlvIdx == -1) dlvIdx = 5
+
+            val startRowIdx = if (headerRow.any { it.contains("NAME") || it.contains("ACCOUNT") || it.contains("AC") || it.contains("PHONE") }) 1 else 0
+
+            for (idx in startRowIdx until parsedRows.size) {
                 val row = parsedRows[idx]
-                // Format: ACCOUNT NUMBER, CUSTOMER NAME, PHONE NUMBER, RECEIVE DATE, ADDRESS, delivered
-                val acNo = row.getOrNull(0)?.trim() ?: ""
-                val name = row.getOrNull(1)?.uppercase()?.trim() ?: ""
-                val phone = row.getOrNull(2)?.trim() ?: ""
-                val receiveDateStr = row.getOrNull(3)?.trim() ?: ""
-                val addressVal = row.getOrNull(4)?.uppercase()?.trim() ?: ""
-                val deliveryVal = row.getOrNull(5)?.trim()?.lowercase() ?: ""
+                val acNo = row.getOrNull(acNoIdx)?.trim() ?: ""
+                val name = row.getOrNull(nameIdx)?.uppercase()?.trim() ?: ""
+                val phone = row.getOrNull(phoneIdx)?.trim() ?: ""
+                val receiveDateStr = if (dateIdx >= 0) row.getOrNull(dateIdx)?.trim() ?: "" else ""
+                val addressVal = if (addrIdx >= 0) row.getOrNull(addrIdx)?.uppercase()?.trim() ?: "" else ""
+                val deliveryVal = if (dlvIdx >= 0) row.getOrNull(dlvIdx)?.trim()?.lowercase() ?: "" else ""
 
                 if (name.isBlank() || acNo.isBlank() || name.lowercase().contains("customer") || acNo.lowercase().contains("account")) continue
 
@@ -585,6 +695,12 @@ class BankingViewModel(application: Application) : AndroidViewModel(application)
     ) {
         viewModelScope.launch {
             repository.insertAtmLoadingLog(atmName, c1Rem, c2Rem, c3Rem, c4Rem, c1Load, c2Load, c3Load, c4Load, totalLoading, operator, remarks)
+        }
+    }
+
+    fun deleteAtmLoadingLog(log: AtmLoadingLog) {
+        viewModelScope.launch {
+            repository.deleteAtmLoadingLog(log)
         }
     }
 

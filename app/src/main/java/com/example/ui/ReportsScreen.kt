@@ -502,7 +502,7 @@ fun ReportsScreen(
                                             }
                                             Spacer(modifier = Modifier.height(4.dp))
                                             Text("A/C Number: ${item.accountNumber}", fontSize = 13.sp)
-                                            Text("Phone: ${item.phoneNumber}", fontSize = 12.sp)
+                                            com.example.util.WhatsAppClickablePhone(phoneNumber = item.phoneNumber, itemType = item.type)
                                             Text("Address: ${item.address}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
                                         }
                                     }
@@ -628,7 +628,7 @@ fun ReportsScreen(
                                                 }
                                                 Spacer(modifier = Modifier.height(4.dp))
                                                 Text("A/C Number: ${item.accountNumber}", fontSize = 13.sp)
-                                                Text("Phone: ${item.phoneNumber}", fontSize = 12.sp)
+                                                com.example.util.WhatsAppClickablePhone(phoneNumber = item.phoneNumber, itemType = item.type)
                                                 Text("Address: ${item.address}", fontSize = 12.sp)
                                                 Spacer(modifier = Modifier.height(4.dp))
                                                 Text(
@@ -719,7 +719,7 @@ fun ReportsScreen(
                                             }
                                             Spacer(modifier = Modifier.height(4.dp))
                                             Text("A/C Number: ${item.accountNumber} | [${item.type}]", fontSize = 13.sp)
-                                            Text("Phone: ${item.phoneNumber}", fontSize = 12.sp)
+                                            com.example.util.WhatsAppClickablePhone(phoneNumber = item.phoneNumber, itemType = item.type)
                                             Text("Address: ${item.address}", fontSize = 12.sp)
                                             Spacer(modifier = Modifier.height(4.dp))
                                             val ageDays = ((now - item.receivedDate) / (1000 * 3600 * 24)).toInt()
@@ -857,7 +857,7 @@ fun ReportsScreen(
                                             }
                                             Spacer(modifier = Modifier.height(4.dp))
                                             Text("A/C Number: ${item.accountNumber}", fontSize = 13.sp)
-                                            Text("Phone: ${item.phoneNumber}", fontSize = 12.sp)
+                                            com.example.util.WhatsAppClickablePhone(phoneNumber = item.phoneNumber, itemType = item.type)
                                             Text("Address: ${item.address}", fontSize = 12.sp)
                                             Spacer(modifier = Modifier.height(4.dp))
                                             Text(
@@ -928,9 +928,17 @@ fun ReportsScreen(
                                 items(filteredAtmLogs) { log ->
                                     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                                         Column(modifier = Modifier.padding(12.dp)) {
-                                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                                 Text(log.atmName, fontWeight = FontWeight.Bold, color = GoldPrimary, fontSize = 14.sp)
-                                                Text(log.dateStr, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                                    Text(log.dateStr, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                                                    IconButton(
+                                                        onClick = { viewModel.deleteAtmLoadingLog(log) },
+                                                        modifier = Modifier.size(24.dp)
+                                                    ) {
+                                                        Icon(Icons.Default.Delete, contentDescription = "Delete ATM Log", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
+                                                    }
+                                                }
                                             }
                                             Spacer(modifier = Modifier.height(4.dp))
                                             Text("Total Loaded: ${log.loadingAmount} BDT", fontWeight = FontWeight.Bold, fontSize = 13.sp)
@@ -1167,7 +1175,7 @@ fun SearchResultCard(item: BankingItem) {
             }
             Spacer(modifier = Modifier.height(4.dp))
             Text("A/C Number: ${item.accountNumber}", fontSize = 13.sp)
-            Text("Phone: ${item.phoneNumber}", fontSize = 12.sp)
+            com.example.util.WhatsAppClickablePhone(phoneNumber = item.phoneNumber, itemType = item.type)
             Text("Address: ${item.address}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
         }
     }

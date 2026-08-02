@@ -38,6 +38,9 @@ interface BankingDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAtmLoadingLog(log: AtmLoadingLog): Long
 
+    @Delete
+    suspend fun deleteAtmLoadingLog(log: AtmLoadingLog)
+
     // --- Digital Forms ---
     @Query("SELECT * FROM digital_forms ORDER BY timestamp DESC")
     fun getAllForms(): Flow<List<DigitalForm>>

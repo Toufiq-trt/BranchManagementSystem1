@@ -62,6 +62,7 @@ fun AtmCalculatorScreen(
     var previewTitle by remember { mutableStateOf("") }
     var previewTextContent by remember { mutableStateOf<String?>(null) }
     var onConfirmDownload by remember { mutableStateOf<() -> Unit>({}) }
+    var logToDelete by remember { mutableStateOf<com.example.data.AtmLoadingLog?>(null) }
 
     // Automatically Reset form to blank on selectedAtm switch
     LaunchedEffect(selectedAtm) {
@@ -636,16 +637,17 @@ fun AtmCalculatorScreen(
                                         Text("Loaded By: ${log.operatorName}", fontSize = 11.sp, color = Color.LightGray)
                                     }
                                     
-                                    // Download transaction report PDF button
-                                    IconButton(
-                                        onClick = {
-                                            val receivedC1And2 = log.c1Remaining + log.c2Remaining
-                                            val receivedC3And4 = log.c3Remaining + log.c4Remaining
-                                            val totalReceivedAmt = (receivedC1And2 * 1000L) + (receivedC3And4 * 500L)
-                                            val loaded1000s = log.c1Loading + log.c2Loading
-                                            val loaded500s = log.c3Loading + log.c4Loading
-                                            
-                                            val slipContent = """
+                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        // Download transaction report PDF button
+                                        IconButton(
+                                            onClick = {
+                                                val receivedC1And2 = log.c1Remaining + log.c2Remaining
+                                                val receivedC3And4 = log.c3Remaining + log.c4Remaining
+                                                val totalReceivedAmt = (receivedC1And2 * 1000L) + (receivedC3And4 * 500L)
+                                                val loaded1000s = log.c1Loading + log.c2Loading
+                                                val loaded500s = log.c3Loading + log.c4Loading
+                                                
+                                                val slipContent = """
 ==================================================
         TOUFIQS SMART BANKING SOLUTION
 ==================================================
@@ -683,39 +685,48 @@ Remarks: ${log.remarks.ifBlank { "N/A" }}
 ==================================================
               DESIGNED BY TOUFIQ
 ==================================================
-                                            """.trimIndent()
-                                            
-                                            val formattedDate = try {
-                                                val parts = log.dateStr.split("-")
-                                                if (parts.size == 3) {
-                                                    val d = parts[2].toInt().toString()
-                                                    val m = parts[1].toInt().toString()
-                                                    val y = parts[0]
-                                                    "$d-$m-$y"
-                                                } else {
+                                                """.trimIndent()
+                                                
+                                                val formattedDate = try {
+                                                    val parts = log.dateStr.split("-")
+                                                    if (parts.size == 3) {
+                                                        val d = parts[2].toInt().toString()
+                                                        val m = parts[1].toInt().toString()
+                                                        val y = parts[0]
+                                                        "$d-$m-$y"
+                                                    } else {
+                                                        log.dateStr.replace("-", "_")
+                                                    }
+                                                } catch (e: Exception) {
                                                     log.dateStr.replace("-", "_")
                                                 }
-                                            } catch (e: Exception) {
-                                                log.dateStr.replace("-", "_")
-                                            }
-                                            val shortAtmName = log.atmName.split(" ").firstOrNull() ?: "ATM"
-                                            val reportFileName = "$shortAtmName Replenishment Report-$formattedDate.pdf"
+                                                val shortAtmName = log.atmName.split(" ").firstOrNull() ?: "ATM"
+                                                val reportFileName = "$shortAtmName Replenishment Report-$formattedDate.pdf"
 
-                                            previewTitle = "ATM LOAD REPORT"
-                                            previewTextContent = slipContent
-                                            onConfirmDownload = {
-                                                PdfHelper.generateAndSharePdf(
-                                                    context = context,
-                                                    fileName = reportFileName,
-                                                    title = "ATM LOAD REPORT",
-                                                    content = slipContent
-                                                )
-                                            }
-                                            showPreviewDialog = true
-                                        },
-                                        modifier = Modifier.background(GoldPrimary.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
-                                    ) {
-                                        Icon(Icons.Default.PictureAsPdf, contentDescription = "Download Report Slip", tint = GoldPrimary, modifier = Modifier.size(20.dp))
+                                                previewTitle = "ATM LOAD REPORT"
+                                                previewTextContent = slipContent
+                                                onConfirmDownload = {
+                                                    PdfHelper.generateAndSharePdf(
+                                                        context = context,
+                                                        fileName = reportFileName,
+                                                        title = "ATM LOAD REPORT",
+                                                        content = slipContent
+                                                    )
+                                                }
+                                                showPreviewDialog = true
+                                            },
+                                            modifier = Modifier.background(GoldPrimary.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
+                                        ) {
+                                            Icon(Icons.Default.PictureAsPdf, contentDescription = "Download Report Slip", tint = GoldPrimary, modifier = Modifier.size(20.dp))
+                                        }
+
+                                        // Delete ATM log button
+                                        IconButton(
+                                            onClick = { logToDelete = log },
+                                            modifier = Modifier.background(MaterialTheme.colorScheme.error.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                                        ) {
+                                            Icon(Icons.Default.Delete, contentDescription = "Delete Load Log", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
+                                        }
                                     }
                                 }
                                 if (log.remarks.isNotBlank()) {
@@ -739,6 +750,34 @@ Remarks: ${log.remarks.ifBlank { "N/A" }}
             onDismiss = { showPreviewDialog = false },
             onDownload = {
                 onConfirmDownload()
+            }
+        )
+    }
+
+    if (logToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { logToDelete = null },
+            title = { Text("Delete ATM Loading Record?") },
+            text = { Text("Are you sure you want to permanently delete this loading record for ${logToDelete?.atmName} (${logToDelete?.dateStr})? This action cannot be undone.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val item = logToDelete
+                        if (item != null) {
+                            viewModel.deleteAtmLoadingLog(item)
+                            android.widget.Toast.makeText(context, "ATM load record deleted", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                        logToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Delete", color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { logToDelete = null }) {
+                    Text("Cancel", color = Color.White)
+                }
             }
         )
     }

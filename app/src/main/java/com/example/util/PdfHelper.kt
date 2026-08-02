@@ -206,11 +206,9 @@ object PdfHelper {
                     typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
                 }
                 
-                // Left side: Date & Time in DD-MM-YYYY format
-                val dateStr = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(Date())
-                val timeStr = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
-                val footerLeft = "Date: $dateStr  Time: $timeStr"
-                currentCanvas.drawText(footerLeft, startX, footerY, footerPaint)
+                // Left side: Clean Date & Time
+                val dateStr = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale.getDefault()).format(Date())
+                currentCanvas.drawText("Generated: $dateStr", startX, footerY, footerPaint)
                 
                 // Middle: DESIGNED BY TOUFIQ
                 val footerMid = "DESIGNED BY TOUFIQ"
@@ -484,10 +482,9 @@ object PdfHelper {
             fun drawFooter(currentCanvas: Canvas) {
                 drawWatermark(currentCanvas) // Render watermark ON TOP of row backgrounds so it is 100% visible
                 val footerY = (pageHeight - 15).toFloat()
-                val dateStr = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(Date())
-                val timeStr = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
-                val footerLeft = "Date: $dateStr  Time: $timeStr"
-                currentCanvas.drawText(footerLeft, startX, footerY, footerPaint)
+                
+                val dateStr = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale.getDefault()).format(Date())
+                currentCanvas.drawText("Generated: $dateStr", startX, footerY, footerPaint)
 
                 val footerMid = "DESIGNED BY TOUFIQ"
                 val footerMidWidth = footerPaint.measureText(footerMid)
@@ -744,10 +741,9 @@ object PdfHelper {
             fun drawFooter(currentCanvas: Canvas) {
                 drawWatermark(currentCanvas)
                 val footerY = (pageHeight - 15).toFloat()
-                val dateStr = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(Date())
-                val timeStr = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
-                val footerLeft = "Date: $dateStr  Time: $timeStr"
-                currentCanvas.drawText(footerLeft, startX, footerY, footerPaint)
+                
+                val dateStr = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale.getDefault()).format(Date())
+                currentCanvas.drawText("Generated: $dateStr", startX, footerY, footerPaint)
 
                 val footerMid = "DESIGNED BY TOUFIQ"
                 val footerMidWidth = footerPaint.measureText(footerMid)
@@ -1000,184 +996,260 @@ object PdfHelper {
         fileName: String,
         item: BankingItem
     ) {
+        generateNoticeLetterBatchPdf(context, fileName, listOf(item))
+    }
+
+    fun generateNoticeLetterBatchPdf(
+        context: Context,
+        fileName: String,
+        items: List<BankingItem>
+    ) {
+        if (items.isEmpty()) return
         try {
             val pdfDocument = PdfDocument()
-            val pageInfo = PdfDocument.PageInfo.Builder(595, 842, 1).create()
-            val page = pdfDocument.startPage(pageInfo)
-            val canvas = page.canvas
 
-            val sdf = SimpleDateFormat("dd MMMM yyyy", Locale.getDefault())
-            val dateStr = sdf.format(Date())
-            val rxDateStr = if (item.receivedDate > 0) sdf.format(Date(item.receivedDate)) else "N/A"
-            val daysStaying = ((System.currentTimeMillis() - item.receivedDate) / (1000L * 3600 * 24)).toInt().coerceAtLeast(0)
+            val fontTimesNormal = Typeface.create("serif", Typeface.NORMAL)
+            val fontTimesBold = Typeface.create("serif", Typeface.BOLD)
+            val fontTimesBoldItalic = Typeface.create("serif", Typeface.BOLD_ITALIC)
 
-            // Header Paints
-            val headerPaint = Paint().apply {
-                color = Color.rgb(15, 23, 42) // SlateDark
-                textSize = 16f
-                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-            }
-            val subHeaderPaint = Paint().apply {
-                color = Color.rgb(180, 83, 9) // Gold Primary
-                textSize = 11f
-                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-            }
+            val currentMonthUpper = SimpleDateFormat("MMMM", Locale.ENGLISH).format(Date()).uppercase()
+            val currentDateStr = SimpleDateFormat("dd/MM/yyyy", Locale.ENGLISH).format(Date())
+
+            // A4 Dimensions & 1 inch (72 points) margins
+            val pageWidth = 595
+            val pageHeight = 842
+            val startX = 72f
+            val endX = 523f // 595 - 72
+            val tableWidth = endX - startX // 451f
+
             val labelPaint = Paint().apply {
                 color = Color.BLACK
-                textSize = 10f
-                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                textSize = 11f
+                typeface = fontTimesBold
+                isAntiAlias = true
             }
             val valuePaint = Paint().apply {
-                color = Color.DKGRAY
-                textSize = 10f
-                typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+                color = Color.BLACK
+                textSize = 11f
+                typeface = fontTimesNormal
+                isAntiAlias = true
             }
             val bodyPaint = Paint().apply {
                 color = Color.BLACK
-                textSize = 10.5f
-                typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+                textSize = 11f
+                typeface = fontTimesNormal
+                isAntiAlias = true
             }
-            val boxBgPaint = Paint().apply {
-                color = Color.rgb(241, 245, 249)
-                style = Paint.Style.FILL
+            val boldItalicBodyPaint = Paint().apply {
+                color = Color.BLACK
+                textSize = 11f
+                typeface = fontTimesBoldItalic
+                isAntiAlias = true
             }
-            val boxBorderPaint = Paint().apply {
-                color = Color.rgb(203, 213, 225)
+            val linePaint = Paint().apply {
+                color = Color.BLACK
+                strokeWidth = 1f
+            }
+            val borderPaint = Paint().apply {
+                color = Color.BLACK
                 style = Paint.Style.STROKE
                 strokeWidth = 1f
             }
-            val linePaint = Paint().apply {
-                color = Color.rgb(203, 213, 225)
-                strokeWidth = 1.5f
-            }
 
-            var y = 50f
-            val startX = 40f
-            val endX = 555f
+            for (pageIndex in items.indices) {
+                val item = items[pageIndex]
+                val pageInfo = PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageIndex + 1).create()
+                val page = pdfDocument.startPage(pageInfo)
+                val canvas = page.canvas
 
-            // Bank Title Banner
-            canvas.drawText("Shimanto Bank PLC.", startX, y, headerPaint)
-            y += 18f
-            canvas.drawText("CHIRIRBANDAR BRANCH, DINAJPUR | BRANCH MANAGEMENT SYSTEM", startX, y, subHeaderPaint)
-            y += 14f
-            canvas.drawText("Ref: SBL/BR/30D-NOTICE/${SimpleDateFormat("yyyy", Locale.getDefault()).format(Date())}/${item.id}", startX, y, valuePaint)
-            canvas.drawText("Date: $dateStr", endX - 120f, y, labelPaint)
-            y += 15f
+                val itemTypeTag = when (item.type) {
+                    "DEBIT_CARD" -> "Debit Card and PIN"
+                    "PIN" -> "Debit Card and PIN"
+                    "CHEQUE_BOOK" -> "Cheque Book"
+                    "DPS" -> "DPS Document"
+                    else -> item.type.replace("_", " ")
+                }
 
-            // Divider
-            canvas.drawLine(startX, y, endX, y, linePaint)
-            y += 25f
+                val itemTypeTagBody = when (item.type) {
+                    "DEBIT_CARD" -> "Debit Card and PIN"
+                    "PIN" -> "Debit Card and PIN"
+                    "CHEQUE_BOOK" -> "cheque book"
+                    "DPS" -> "DPS document"
+                    else -> item.type.lowercase()
+                }
 
-            // Notice Title
-            val titlePaint = Paint().apply {
-                color = Color.rgb(180, 83, 9)
-                textSize = 12.5f
-                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-            }
-            canvas.drawText("OFFICIAL NOTICE: UNCOLLECTED ${item.type.replace("_", " ")} (> 30 DAYS)", startX, y, titlePaint)
-            y += 20f
+                // Logo Header Section
+                val logoBitmap = try {
+                    android.graphics.BitmapFactory.decodeResource(context.resources, com.example.R.drawable.shimanto_bank_header)
+                        ?: android.graphics.BitmapFactory.decodeResource(context.resources, com.example.R.drawable.app_logo)
+                } catch (e: Exception) {
+                    null
+                }
 
-            // Customer Details Card Box
-            val boxTop = y
-            val boxHeight = 110f
-            canvas.drawRect(startX, boxTop, endX, boxTop + boxHeight, boxBgPaint)
-            canvas.drawRect(startX, boxTop, endX, boxTop + boxHeight, boxBorderPaint)
-
-            var boxY = boxTop + 20f
-            val col2X = 300f
-
-            canvas.drawText("ACCOUNT NAME:", startX + 15f, boxY, labelPaint)
-            canvas.drawText(item.customerName, startX + 120f, boxY, valuePaint)
-
-            canvas.drawText("ITEM TYPE:", col2X, boxY, labelPaint)
-            canvas.drawText(item.type.replace("_", " "), col2X + 80f, boxY, valuePaint)
-
-            boxY += 22f
-            canvas.drawText("ACCOUNT NO:", startX + 15f, boxY, labelPaint)
-            canvas.drawText(item.accountNumber, startX + 120f, boxY, valuePaint)
-
-            canvas.drawText("DAYS IN VAULT:", col2X, boxY, labelPaint)
-            canvas.drawText("$daysStaying Days", col2X + 80f, boxY, valuePaint)
-
-            boxY += 22f
-            canvas.drawText("PHONE NO:", startX + 15f, boxY, labelPaint)
-            canvas.drawText(item.phoneNumber, startX + 120f, boxY, valuePaint)
-
-            canvas.drawText("RECEIVE DATE:", col2X, boxY, labelPaint)
-            canvas.drawText(rxDateStr, col2X + 80f, boxY, valuePaint)
-
-            boxY += 22f
-            canvas.drawText("ADDRESS:", startX + 15f, boxY, labelPaint)
-            val cleanAddr = if (item.address.length > 35) item.address.take(35) + "..." else item.address
-            canvas.drawText(if (cleanAddr.isBlank()) "CHIRIRBANDAR, DINAJPUR" else cleanAddr, startX + 120f, boxY, valuePaint)
-
-            y = boxTop + boxHeight + 30f
-
-            // Notice Body Paragraphs
-            val salutation = "Dear Valued Customer (${item.customerName}),"
-            canvas.drawText(salutation, startX, y, labelPaint)
-            y += 20f
-
-            val itemLabel = item.type.replace("_", " ")
-            val p1 = "This is an official communication from Shimanto Bank PLC. regarding your requested $itemLabel for Account Number ${item.accountNumber}. The item was safely received at our branch on $rxDateStr and has been stored in our secure vault for over $daysStaying days."
-
-            fun drawWrappedText(text: String) {
-                val maxWidth = endX - startX
-                var line = ""
-                for (word in text.split(" ")) {
-                    val testLine = if (line.isEmpty()) word else "$line $word"
-                    if (bodyPaint.measureText(testLine) > maxWidth) {
-                        canvas.drawText(line, startX, y, bodyPaint)
-                        y += 16f
-                        line = word
-                    } else {
-                        line = testLine
+                var y = 35f
+                if (logoBitmap != null) {
+                    val logoWidth = 240f
+                    val logoHeight = logoWidth * (logoBitmap.height.toFloat() / logoBitmap.width.toFloat())
+                    val logoPaint = Paint().apply {
+                        isAntiAlias = true
+                        isFilterBitmap = true
+                        isDither = true
                     }
+                    canvas.drawBitmap(logoBitmap, null, RectF(startX, y, startX + logoWidth, y + logoHeight), logoPaint)
+                    y += logoHeight + 20f
+                } else {
+                    y = 80f
                 }
-                if (line.isNotEmpty()) {
-                    canvas.drawText(line, startX, y, bodyPaint)
-                    y += 16f
+
+                // Reference & Date Lines
+                val refStr = "Ref: SMBPLC/7003/$itemTypeTag/2026/$currentMonthUpper/"
+                canvas.drawText(refStr, startX, y, valuePaint)
+                y += 18f
+                canvas.drawText("Date: $currentDateStr", startX, y, valuePaint)
+                y += 20f
+
+                // Customer Recipient 2-Column Table (Bold labels & bold values)
+                val col1Width = 110f
+                val col2Width = tableWidth - col1Width
+                val tableRight = endX
+                val rowHeight = 22f
+
+                val tableRows = listOf(
+                    "Name" to item.customerName,
+                    "Father Name" to "",
+                    "Address" to if (item.address.isBlank()) "CHIRIRBANDAR, DINAJPUR" else item.address,
+                    "Reg no" to item.regNo,
+                    "Mobile No" to item.phoneNumber
+                )
+
+                for ((label, value) in tableRows) {
+                    canvas.drawRect(startX, y, tableRight, y + rowHeight, borderPaint)
+                    canvas.drawLine(startX + col1Width, y, startX + col1Width, y + rowHeight, borderPaint)
+
+                    canvas.drawText(label, startX + 8f, y + 15f, labelPaint)
+                    canvas.drawText(value, startX + col1Width + 8f, y + 15f, labelPaint)
+
+                    y += rowHeight
                 }
+                y += 24f
+
+                // Subject Line (Bold)
+                val subjectText = "Subject: Collection of $itemTypeTag."
+                canvas.drawText(subjectText, startX, y, labelPaint)
+                y += 36f // 2 line gap after Subject
+
+                // Salutation (Bold)
+                canvas.drawText("Dear Sir / Madam,", startX, y, labelPaint)
+                y += 24f // 1 line gap after Salutation
+
+                // Helper for Justified Text (Ctrl+J) rendering
+                data class WordToken(val text: String, val paint: Paint)
+
+                fun drawJustifiedParagraph(tokens: List<WordToken>, lineGap: Float = 18f): Float {
+                    val wordList = mutableListOf<WordToken>()
+                    for (token in tokens) {
+                        for (w in token.text.split(" ")) {
+                            if (w.isNotBlank()) {
+                                wordList.add(WordToken(w, token.paint))
+                            }
+                        }
+                    }
+                    if (wordList.isEmpty()) return y
+
+                    val lineWords = mutableListOf<WordToken>()
+                    var lineLength = 0f
+
+                    var i = 0
+                    while (i < wordList.size) {
+                        val wordToken = wordList[i]
+                        val wWidth = wordToken.paint.measureText(wordToken.text)
+                        val sWidth = wordToken.paint.measureText(" ")
+                        val totalNeeded = if (lineWords.isEmpty()) wWidth else lineLength + sWidth + wWidth
+
+                        if (totalNeeded <= tableWidth) {
+                            lineWords.add(wordToken)
+                            lineLength = totalNeeded
+                            i++
+                        } else {
+                            // Render justified line
+                            val totalWordWidths = lineWords.sumOf { it.paint.measureText(it.text).toDouble() }.toFloat()
+                            val extraSpace = tableWidth - totalWordWidths
+                            val gapCount = lineWords.size - 1
+                            val gapWidth = if (gapCount > 0) extraSpace / gapCount else sWidth
+
+                            var currX = startX
+                            for (idxWord in lineWords.indices) {
+                                val itemW = lineWords[idxWord]
+                                canvas.drawText(itemW.text, currX, y, itemW.paint)
+                                currX += itemW.paint.measureText(itemW.text) + gapWidth
+                            }
+                            y += lineGap
+                            lineWords.clear()
+                            lineLength = 0f
+                        }
+                    }
+
+                    // Render final line left aligned
+                    if (lineWords.isNotEmpty()) {
+                        var currX = startX
+                        for (itemW in lineWords) {
+                            canvas.drawText(itemW.text, currX, y, itemW.paint)
+                            currX += itemW.paint.measureText(itemW.text) + itemW.paint.measureText(" ")
+                        }
+                        y += lineGap
+                    }
+                    return y
+                }
+
+                // Paragraph 0 (Justified)
+                val p0Tokens = listOf(
+                    WordToken("Thank you for choosing Shimanto Bank PLC as your banking partner.", bodyPaint)
+                )
+                drawJustifiedParagraph(p0Tokens)
+                y += 18f
+
+                // Paragraph 1 (Acct Number Bold Italic, Justified)
+                val p1Tokens = listOf(
+                    WordToken("This is to inform you that your $itemTypeTagBody of account number", bodyPaint),
+                    WordToken("“${item.accountNumber}”", boldItalicBodyPaint),
+                    WordToken("have not been collected from our Chirirbandar Branch. You are hereby requested to collect the $itemTypeTagBody within 30 days from the issuing date of this letter.", bodyPaint)
+                )
+                drawJustifiedParagraph(p1Tokens)
+                y += 18f
+
+                // Paragraph 2 (Justified)
+                val p2Tokens = listOf(
+                    WordToken("Please note as per bank’s laid down process, we will destroy your $itemTypeTagBody if not collected within the stipulated time frame and a destruction charge will be deducted from your account as per our published schedule of charges.", bodyPaint)
+                )
+                drawJustifiedParagraph(p2Tokens)
+                y += 18f
+
+                // Paragraph 3 (Justified)
+                val p3Tokens = listOf(
+                    WordToken("Hence, kindly consider this as the final reminder from the bank to collect your $itemTypeTagBody within the mentioned time. We appreciate your cooperation in helping us to serve you better.", bodyPaint)
+                )
+                drawJustifiedParagraph(p3Tokens)
+                y += 20f
+
+                // Contact line
+                val p4 = "Please feel free to contact us for any further assistance. 09610870230-34"
+                canvas.drawText(p4, startX, y, labelPaint)
+                y += 45f // 2 line gap before Yours Sincerely
+
+                // Yours Sincerely & Authorised Signatories
+                canvas.drawText("Yours Sincerely,", startX, y, labelPaint)
+                y += 60f // 3 line gap before signatures
+
+                val sig1X = startX
+                val sig2X = endX - 140f
+                canvas.drawLine(sig1X, y, sig1X + 130f, y, linePaint)
+                canvas.drawLine(sig2X, y, sig2X + 130f, y, linePaint)
+                y += 16f
+                canvas.drawText("Authorised signatory", sig1X, y, labelPaint)
+                canvas.drawText("Authorised signatory", sig2X, y, labelPaint)
+
+                pdfDocument.finishPage(page)
             }
-
-            drawWrappedText(p1)
-            y += 10f
-
-            val p2 = "In accordance with standard banking security protocols, items remaining uncollected after 90 days from the date of receipt are scheduled for mandatory destruction or return to the central card/cheque issuing facility."
-            drawWrappedText(p2)
-            y += 10f
-
-            val p3 = "To avoid cancellation or inconvenience, you are kindly requested to visit our Chirirbandar Branch, Dinajpur during banking hours with your original National ID (NID) or Passport to collect your $itemLabel."
-            drawWrappedText(p3)
-            y += 10f
-
-            val p4 = "If you have already collected your item or received previous confirmation, please disregard this notice."
-            drawWrappedText(p4)
-            y += 45f
-
-            // Signatures block
-            val sigLineY = y
-            canvas.drawLine(startX, sigLineY, startX + 150f, sigLineY, linePaint)
-            canvas.drawLine(endX - 160f, sigLineY, endX, sigLineY, linePaint)
-            y += 15f
-            canvas.drawText("Prepared By (Branch Officer)", startX, y, valuePaint)
-            canvas.drawText("Branch Manager / Authorized Signatory", endX - 180f, y, valuePaint)
-
-            y += 14f
-            canvas.drawText("Shimanto Bank PLC.", startX, y, labelPaint)
-            canvas.drawText("Shimanto Bank PLC., Chirirbandar Branch, Dinajpur", endX - 180f, y, labelPaint)
-
-            // Footer
-            y = 800f
-            canvas.drawLine(startX, y, endX, y, linePaint)
-            y += 15f
-            val footerPaint = Paint().apply {
-                color = Color.GRAY
-                textSize = 8.5f
-            }
-            canvas.drawText("Generated by Branch Management System | Officer Toufiq | Notice Ref: #${item.id}", startX, y, footerPaint)
-
-            pdfDocument.finishPage(page)
 
             val file = File(context.cacheDir, fileName)
             val outputStream = FileOutputStream(file)
@@ -1193,7 +1265,7 @@ object PdfHelper {
                 putExtra(Intent.EXTRA_STREAM, uri)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
-            context.startActivity(Intent.createChooser(shareIntent, "Download / Share Notice Letter PDF"))
+            context.startActivity(Intent.createChooser(shareIntent, "Download / Print Notice Letters PDF"))
         } catch (e: Exception) {
             e.printStackTrace()
             android.widget.Toast.makeText(context, "Error generating Notice Letter PDF: ${e.localizedMessage}", android.widget.Toast.LENGTH_LONG).show()

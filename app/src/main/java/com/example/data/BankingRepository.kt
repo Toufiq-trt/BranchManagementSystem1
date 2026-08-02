@@ -19,7 +19,8 @@ class BankingRepository(private val bankingDao: BankingDao) {
         phoneNumber: String,
         receivedDateOverride: Long? = null,
         remarks: String,
-        isDemo: Boolean = false
+        isDemo: Boolean = false,
+        regNo: String = ""
     ): Long {
         val received = receivedDateOverride ?: System.currentTimeMillis()
         val destroy = received + (90L * 24L * 60L * 60L * 1000L) // 90 days later
@@ -34,7 +35,8 @@ class BankingRepository(private val bankingDao: BankingDao) {
             remarks = remarks.uppercase().trim(),
             isDestroyed = false,
             isBalanced = true, // Automatically create active balancing entry
-            isDemo = isDemo
+            isDemo = isDemo,
+            regNo = regNo.trim()
         )
         val id = bankingDao.insertItem(item)
         val finalItem = item.copy(id = id.toInt())
@@ -129,6 +131,10 @@ class BankingRepository(private val bankingDao: BankingDao) {
         val finalLog = log.copy(id = id.toInt())
         FirebaseSyncHelper.pushToFirebase("atm_loading_logs", id.toString(), finalLog)
         return id
+    }
+
+    suspend fun deleteAtmLoadingLog(log: AtmLoadingLog) {
+        bankingDao.deleteAtmLoadingLog(log)
     }
 
     // --- Digital Forms ---

@@ -68,6 +68,7 @@ fun BankingItemScreen(
     // Local state for Add Form
     var customerName by remember { mutableStateOf("") }
     var accountNumber by remember { mutableStateOf("") }
+    var regNo by remember { mutableStateOf("") }
     var address by remember { mutableStateOf("") }
     var phoneNumber by remember { mutableStateOf("") }
     var remarks by remember { mutableStateOf("") }
@@ -213,7 +214,7 @@ fun BankingItemScreen(
                         ) {
                             Icon(Icons.Default.BorderAll, contentDescription = null, modifier = Modifier.size(13.dp), tint = GoldPrimary)
                             Spacer(modifier = Modifier.width(3.dp))
-                            Text("Excel", fontSize = 10.sp, color = Color.White)
+                            Text("Excel / CSV", fontSize = 10.sp, color = Color.White)
                         }
                         Button(
                             onClick = {
@@ -227,7 +228,7 @@ fun BankingItemScreen(
                         ) {
                             Icon(Icons.Default.PhotoCamera, contentDescription = null, modifier = Modifier.size(13.dp), tint = GoldPrimary)
                             Spacer(modifier = Modifier.width(3.dp))
-                            Text("Camera", fontSize = 10.sp, color = Color.White)
+                            Text("Camera OCR", fontSize = 10.sp, color = Color.White)
                         }
                         Button(
                             onClick = {
@@ -262,20 +263,6 @@ fun BankingItemScreen(
                             Spacer(modifier = Modifier.width(3.dp))
                             Text(if (isSyncingSheets) "Syncing..." else "Sheet Sync", fontSize = 10.sp, color = Color.White)
                         }
-                        Button(
-                            onClick = {
-                                bulkImportType = "PASTE"
-                                showBulkImportDialog = true
-                            },
-                            modifier = Modifier.weight(1.1f),
-                            colors = ButtonDefaults.buttonColors(containerColor = SlateDark),
-                            contentPadding = PaddingValues(vertical = 4.dp),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Icon(Icons.Default.Assignment, contentDescription = null, modifier = Modifier.size(13.dp), tint = GoldPrimary)
-                            Spacer(modifier = Modifier.width(3.dp))
-                            Text("Easy Paste", fontSize = 10.sp, color = Color.White)
-                        }
                     }
                     
                     HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), thickness = 1.dp)
@@ -292,6 +279,13 @@ fun BankingItemScreen(
                         value = accountNumber,
                         onValueChange = { accountNumber = it },
                         label = { Text("Account Number") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = regNo,
+                        onValueChange = { regNo = it },
+                        label = { Text("Reg No (Registration Number)") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
@@ -387,6 +381,7 @@ fun BankingItemScreen(
                                     phone = phoneNumber,
                                     remarks = remarks,
                                     dateOverride = selectedReceivedDate,
+                                    regNo = regNo,
                                     onDuplicate = {
                                         android.widget.Toast.makeText(
                                             context,
@@ -403,6 +398,7 @@ fun BankingItemScreen(
                                         // Clear inputs for another entry, keeping the form open
                                         customerName = ""
                                         accountNumber = ""
+                                        regNo = ""
                                         address = ""
                                         phoneNumber = ""
                                         remarks = ""
@@ -499,39 +495,73 @@ fun BankingItemScreen(
 
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         if (selectedItemIds.isNotEmpty()) {
+                            val selectedItemsList = currentDisplayList.filter { it.id in selectedItemIds }
+
+                            // Generate Batch Letters PDF
+                            Button(
+                                onClick = {
+                                    val formattedDate = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(Date())
+                                    val pdfFileName = "Notice_Letters_Batch_$formattedDate.pdf"
+                                    com.example.util.PdfHelper.generateNoticeLetterBatchPdf(context, pdfFileName, selectedItemsList)
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary, contentColor = SlateDark),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                shape = RoundedCornerShape(6.dp)
+                            ) {
+                                Icon(Icons.Default.PictureAsPdf, contentDescription = null, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Text("PDF Letters (${selectedItemIds.size})", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+
+                            // Generate Batch Letters DOCX
+                            Button(
+                                onClick = {
+                                    val formattedDate = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(Date())
+                                    val docxFileName = "Notice_Letters_Batch_$formattedDate.docx"
+                                    com.example.util.DocxHelper.generateAndShareDocx(context, docxFileName, selectedItemsList)
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = SlateDark, contentColor = GoldPrimary),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                shape = RoundedCornerShape(6.dp)
+                            ) {
+                                Icon(Icons.Default.Description, contentDescription = null, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Text("DOCX Letters (${selectedItemIds.size})", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+
                             // Deliver Selected
                             Button(
                                 onClick = {
-                                    val itemsToDeliver = currentDisplayList.filter { it.id in selectedItemIds }
+                                    val itemsToDeliver = selectedItemsList
                                     viewModel.batchMarkAsDelivered(itemsToDeliver)
                                     selectedItemIds = emptySet()
                                     isMultiSelectMode = false
                                     android.widget.Toast.makeText(context, "${itemsToDeliver.size} items delivered!", android.widget.Toast.LENGTH_SHORT).show()
                                 },
                                 colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary, contentColor = SlateDark),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
                                 shape = RoundedCornerShape(6.dp)
                             ) {
                                 Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(14.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
+                                Spacer(modifier = Modifier.width(3.dp))
                                 Text("Deliver (${selectedItemIds.size})", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
 
                             // Delete Selected
                             Button(
                                 onClick = {
-                                    val itemsToDelete = currentDisplayList.filter { it.id in selectedItemIds }
+                                    val itemsToDelete = selectedItemsList
                                     viewModel.batchDeleteBankingItems(itemsToDelete)
                                     selectedItemIds = emptySet()
                                     isMultiSelectMode = false
                                     android.widget.Toast.makeText(context, "${itemsToDelete.size} items moved to Recycle Bin!", android.widget.Toast.LENGTH_SHORT).show()
                                 },
                                 colors = ButtonDefaults.buttonColors(containerColor = RedAccent, contentColor = Color.White),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
                                 shape = RoundedCornerShape(6.dp)
                             ) {
                                 Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(14.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
+                                Spacer(modifier = Modifier.width(3.dp))
                                 Text("Delete (${selectedItemIds.size})", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                         }
@@ -821,6 +851,7 @@ fun BankingItemScreen(
     if (editingItem != null) {
         var editName by remember { mutableStateOf(editingItem?.customerName ?: "") }
         var editAcNo by remember { mutableStateOf(editingItem?.accountNumber ?: "") }
+        var editRegNo by remember { mutableStateOf(editingItem?.regNo ?: "") }
         var editPhone by remember { mutableStateOf(editingItem?.phoneNumber ?: "") }
         var editAddress by remember { mutableStateOf(editingItem?.address ?: "") }
         var editRemarks by remember { mutableStateOf(editingItem?.remarks ?: "") }
@@ -841,6 +872,13 @@ fun BankingItemScreen(
                         value = editAcNo,
                         onValueChange = { editAcNo = it },
                         label = { Text("Account Number") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = editRegNo,
+                        onValueChange = { editRegNo = it },
+                        label = { Text("Reg No (Registration Number)") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
@@ -876,7 +914,8 @@ fun BankingItemScreen(
                                 accountNumber = editAcNo.trim(),
                                 phoneNumber = editPhone.trim(),
                                 address = editAddress.uppercase().trim(),
-                                remarks = editRemarks.uppercase().trim()
+                                remarks = editRemarks.uppercase().trim(),
+                                regNo = editRegNo.trim()
                             )
                             viewModel.updateBankingItem(updated)
                         }
@@ -918,23 +957,34 @@ private fun parseCsvTextLocal(text: String): List<List<String>> {
     val lines = text.split("\n")
     for (line in lines) {
         if (line.isBlank()) continue
-        val row = mutableListOf<String>()
-        var inQuotes = false
-        val sb = java.lang.StringBuilder()
-        var i = 0
-        while (i < line.length) {
-            val c = line[i]
-            if (c == '\"') {
-                inQuotes = !inQuotes
-            } else if (c == ',' && !inQuotes) {
-                row.add(sb.toString().trim())
-                sb.setLength(0)
-            } else {
-                sb.append(c)
-            }
-            i++
+        val delimiter = when {
+            line.contains("\t") -> "\t"
+            line.contains("|") -> "|"
+            line.contains(";") -> ";"
+            else -> ","
         }
-        row.add(sb.toString().trim())
+        val row = mutableListOf<String>()
+        if (delimiter == ",") {
+            var inQuotes = false
+            val sb = java.lang.StringBuilder()
+            var i = 0
+            while (i < line.length) {
+                val c = line[i]
+                if (c == '\"') {
+                    inQuotes = !inQuotes
+                } else if (c == ',' && !inQuotes) {
+                    row.add(sb.toString().trim())
+                    sb.setLength(0)
+                } else {
+                    sb.append(c)
+                }
+                i++
+            }
+            row.add(sb.toString().trim())
+        } else {
+            row.addAll(line.split(delimiter).map { it.trim() })
+        }
+
         val cleanRow = row.map { cell ->
             var cleaned = cell
             if (cleaned.startsWith("\"") && cleaned.endsWith("\"") && cleaned.length >= 2) {
@@ -942,7 +992,9 @@ private fun parseCsvTextLocal(text: String): List<List<String>> {
             }
             cleaned.replace("\"\"", "\"")
         }
-        result.add(cleanRow)
+        if (cleanRow.any { it.isNotBlank() }) {
+            result.add(cleanRow)
+        }
     }
     return result
 }
@@ -975,7 +1027,7 @@ private fun getFileName(context: android.content.Context, uri: android.net.Uri):
 @Composable
 fun BulkImportDialog(
     itemType: String,
-    importType: String, // "EXCEL", "PHOTO", "SHEETS", "PASTE"
+    importType: String, // "EXCEL", "PHOTO", "SHEETS"
     onDismiss: () -> Unit,
     onImportConfirmed: (List<List<String>>, onComplete: (inserted: Int, updated: Int) -> Unit) -> Unit
 ) {
@@ -984,7 +1036,6 @@ fun BulkImportDialog(
         mutableStateOf("https://docs.google.com/spreadsheets/d/1BUc13oZ_qKIBW9OOFtcPAZh9aoELxyVq6sguoAyAdFg/edit?usp=sharing")
     }
     var excelFileSelected by remember { mutableStateOf("No file selected") }
-    var pasteText by remember { mutableStateOf("") }
     var photoCaptured by remember { mutableStateOf(false) }
     var capturedBitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
     var extractedRows by remember { mutableStateOf<List<List<String>>>(emptyList()) }
@@ -1006,7 +1057,7 @@ fun BulkImportDialog(
                     if (parsed.isNotEmpty()) {
                         extractedRows = parsed
                     } else {
-                        android.widget.Toast.makeText(context, "No rows found in selected CSV", android.widget.Toast.LENGTH_SHORT).show()
+                        android.widget.Toast.makeText(context, "No rows found in selected CSV file", android.widget.Toast.LENGTH_SHORT).show()
                     }
                 } else {
                     android.widget.Toast.makeText(context, "Selected file is empty", android.widget.Toast.LENGTH_SHORT).show()
@@ -1027,16 +1078,13 @@ fun BulkImportDialog(
         }
     }
 
-    val simulatedResults = emptyList<List<String>>()
-
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
                 text = when (importType) {
                     "EXCEL" -> "Excel Spreadsheet Importer"
-                    "PHOTO" -> "Photo Document OCR Scanner"
-                    "PASTE" -> "Smart Text Paste Importer"
+                    "PHOTO" -> "Camera OCR Photo Scanner"
                     else -> "Google Sheets Live Sync"
                 },
                 fontSize = 16.sp,
@@ -1068,48 +1116,8 @@ fun BulkImportDialog(
                                 Text("Extracted ${extractedRows.size} rows successfully!", color = GreenAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                         }
-                        "PASTE" -> {
-                            Text("Paste raw multi-line records (e.g. from notes, WhatsApp, email). Format: ACCOUNT NUMBER, CUSTOMER NAME, PHONE NUMBER, RECEIVE DATE, ADDRESS, delivered (separated by comma, pipe, tab, or semicolon).", fontSize = 12.sp, color = Color.LightGray)
-                            OutlinedTextField(
-                                value = pasteText,
-                                onValueChange = { 
-                                    pasteText = it
-                                    if (it.isNotBlank()) {
-                                        val lines = it.lines()
-                                        val extracted = mutableListOf<List<String>>()
-                                        // Add header row first
-                                        extracted.add(listOf("ACCOUNT NUMBER", "CUSTOMER NAME", "PHONE NUMBER", "RECEIVE DATE", "ADDRESS", "delivered"))
-                                        for (line in lines) {
-                                            if (line.isBlank()) continue
-                                            val parts = line.split(Regex("[,|;\t]")).map { it.trim() }
-                                            if (parts.size >= 2) {
-                                                val acNo = parts.getOrNull(0) ?: ""
-                                                val name = parts.getOrNull(1) ?: ""
-                                                val phone = parts.getOrNull(2) ?: ""
-                                                val rcvDate = parts.getOrNull(3) ?: ""
-                                                val addr = parts.getOrNull(4) ?: ""
-                                                val dlv = parts.getOrNull(5) ?: ""
-                                                extracted.add(listOf(acNo, name, phone, rcvDate, addr, dlv))
-                                            }
-                                        }
-                                        extractedRows = extracted
-                                    } else {
-                                        extractedRows = emptyList()
-                                    }
-                                },
-                                label = { Text("Paste Text Area") },
-                                placeholder = { Text("1234567890, Toufiq, 01712345678, 18.07.2026, Dinajpur, delivered") },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(130.dp),
-                                maxLines = 10
-                            )
-                            if (extractedRows.isNotEmpty()) {
-                                Text("Extracted ${extractedRows.size - 1} records!", color = GreenAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
                         "PHOTO" -> {
-                            Text("Use the device camera to photograph printed ledger registers or courier lists. The document values will be extracted and previewed below.", fontSize = 12.sp, color = Color.LightGray)
+                            Text("Use the phone back camera to click a photo of printed ledger registers or courier lists. Gemini AI will analyze the photo to extract customer account data.", fontSize = 12.sp, color = Color.LightGray)
                             Spacer(modifier = Modifier.height(8.dp))
                             if (!photoCaptured) {
                                 Button(
@@ -1128,11 +1136,12 @@ fun BulkImportDialog(
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Text("Captured Document:", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = GoldPrimary)
+                                        Text("Captured Document Photo:", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = GoldPrimary)
                                         TextButton(
                                             onClick = {
                                                 photoCaptured = false
                                                 capturedBitmap = null
+                                                extractedRows = emptyList()
                                             },
                                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
                                         ) {
@@ -1142,7 +1151,6 @@ fun BulkImportDialog(
                                         }
                                     }
 
-                                    // Display captured photo bitmap if available
                                     capturedBitmap?.let { bitmap ->
                                         Box(
                                             modifier = Modifier
@@ -1187,21 +1195,25 @@ fun BulkImportDialog(
                             .padding(8.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        // Header
                         Row(modifier = Modifier.fillMaxWidth().background(Color.Black.copy(alpha = 0.5f)).padding(4.dp)) {
                             Text("A/C Number", modifier = Modifier.weight(1.1f), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
                             Text("Customer Name", modifier = Modifier.weight(1.2f), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
                             Text("Phone", modifier = Modifier.weight(1f), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
                             Text("Address", modifier = Modifier.weight(1f), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         }
-                        // Rows
                         val previewList = if (extractedRows.isNotEmpty()) {
-                            extractedRows.drop(1).take(4)
+                            if (extractedRows.size > 1) extractedRows.drop(1).take(4) else extractedRows.take(4)
                         } else {
                             emptyList()
                         }
                         if (previewList.isEmpty()) {
-                            Text("No records to preview. Please upload or paste data in standard format.", color = Color.Gray, fontSize = 11.sp, modifier = Modifier.padding(4.dp))
+                            Text(
+                                if (importType == "PHOTO") "Photo taken! Click 'Parse & Import' below to extract and save records."
+                                else "No records loaded yet. Please select a CSV spreadsheet.",
+                                color = Color.Gray,
+                                fontSize = 11.sp,
+                                modifier = Modifier.padding(4.dp)
+                            )
                         } else {
                             previewList.forEach { row ->
                                 Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp)) {
@@ -1222,9 +1234,8 @@ fun BulkImportDialog(
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
                             text = when (importType) {
-                                "EXCEL" -> "Parsing local spreadsheet rows..."
-                                "PHOTO" -> "AI analyzing text values..."
-                                "PASTE" -> "Extracting values from text block..."
+                                "EXCEL" -> "Parsing spreadsheet rows..."
+                                "PHOTO" -> "Gemini AI extracting register entries from photo..."
                                 else -> "Connecting to Google API nodes..."
                             },
                             fontSize = 13.sp,
@@ -1260,7 +1271,6 @@ fun BulkImportDialog(
                 val isEnabled = when (importType) {
                     "PHOTO" -> photoCaptured
                     "EXCEL" -> excelFileSelected != "No file selected"
-                    "PASTE" -> pasteText.isNotBlank() && extractedRows.size > 1
                     "SHEETS" -> sheetsUrl.isNotBlank()
                     else -> true
                 }
@@ -1298,12 +1308,23 @@ fun BulkImportDialog(
 
     if (step == 2) {
         LaunchedEffect(Unit) {
-            kotlinx.coroutines.delay(1500)
-            val listToImport = extractedRows
-            onImportConfirmed(listToImport) { inserted, updated ->
-                importedCount = inserted
-                updatedCount = updated
-                step = 3
+            var listToImport = extractedRows
+            if (importType == "PHOTO" && capturedBitmap != null && listToImport.isEmpty()) {
+                val rowsFromPhoto = com.example.data.GeminiService.extractTableFromImage(capturedBitmap!!)
+                if (rowsFromPhoto.isNotEmpty()) {
+                    listToImport = rowsFromPhoto
+                }
+            }
+
+            if (listToImport.isNotEmpty()) {
+                onImportConfirmed(listToImport) { inserted, updated ->
+                    importedCount = inserted
+                    updatedCount = updated
+                    step = 3
+                }
+            } else {
+                step = 1
+                android.widget.Toast.makeText(context, "Could not extract data rows from image/file. Please retry.", android.widget.Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -1432,7 +1453,13 @@ fun BankingItemRow(
             }
 
             // Expanded details
-            Text(text = "Phone: ${item.phoneNumber}", fontSize = 12.sp)
+            com.example.util.WhatsAppClickablePhone(
+                phoneNumber = item.phoneNumber,
+                itemType = item.type
+            )
+            if (item.regNo.isNotBlank()) {
+                Text(text = "Reg No: ${item.regNo}", fontSize = 12.sp, color = GoldLight, fontWeight = FontWeight.Medium)
+            }
             Text(text = "Address: ${item.address}", fontSize = 12.sp)
             Text(
                 text = if (item.isDelivered && item.deliveryDate > 0L) {
@@ -1614,6 +1641,7 @@ fun CustomerNoticeLetterDialog(
                         Text("FETCHED CUSTOMER DATA", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = GoldPrimary)
                         Text("• Name: ${item.customerName}", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
                         Text("• Account No: ${item.accountNumber}", fontSize = 12.sp)
+                        Text("• Reg No: ${if (item.regNo.isBlank()) "N/A" else item.regNo}", fontSize = 12.sp)
                         Text("• Phone: ${item.phoneNumber}", fontSize = 12.sp)
                         Text("• Address: ${if (item.address.isBlank()) "Chirirbandar, Dinajpur" else item.address}", fontSize = 12.sp)
                         Text("• Item Category: ${item.type.replace("_", " ")}", fontSize = 12.sp)
