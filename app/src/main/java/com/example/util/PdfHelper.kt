@@ -151,6 +151,9 @@ object PdfHelper {
             val columnWidths = if (headers.size == 6) {
                 // 6 columns: TYPE, AC NUMBER, NAME, PHONE NUMBER, ADDRESS, 1 MONTH COMPLETE
                 listOf(65f, 80f, 100f, 85f, 110f, 95f)
+            } else if (headers.contains("ACCOUNT NAME") || headers.contains("PARTICULAR")) {
+                // 5 columns: ACCOUNT NAME, ACCOUNT NUMBER, PHONE NO., RECEIVED DATE, PARTICULAR
+                listOf(125f, 95f, 90f, 85f, 140f)
             } else {
                 // 5 columns: TYPE, AC NUMBER, NAME, PHONE NUMBER, ADDRESS
                 listOf(70f, 90f, 125f, 100f, 150f)
@@ -1270,5 +1273,72 @@ object PdfHelper {
             e.printStackTrace()
             android.widget.Toast.makeText(context, "Error generating Notice Letter PDF: ${e.localizedMessage}", android.widget.Toast.LENGTH_LONG).show()
         }
+    }
+
+    /**
+     * Builds grouped, sorted search result report rows and title/filename based on user specifications:
+     * - Filename: "<Query> Cheque and Card list.pdf"
+     * - Columns: ACCOUNT NAME | ACCOUNT NUMBER | PHONE NO. | RECEIVED DATE | PARTICULAR
+     * - Sorting: First customers having BOTH Cheque and Card, then ONLY Cheque, then ONLY Card.
+     * - PARTICULAR value: "Cheque and Card", "Cheque Book", or "Debit Card".
+     */
+    fun buildSearchResultReportRows(
+        query: String,
+        items: List<BankingItem>
+    ): Triple<String, List<String>, List<List<String>>> {
+        val cleanQuery = query.trim().ifEmpty { "Search" }
+        val fileName = "$cleanQuery Cheque and Card list.pdf"
+        val headers = listOf("ACCOUNT NAME", "ACCOUNT NUMBER", "PHONE NO.", "RECEIVED DATE", "PARTICULAR")
+        val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+
+        val grouped = items.groupBy { 
+            if (it.accountNumber.isNotBlank()) it.accountNumber.trim() else it.customerName.trim()
+        }
+
+        data class AccountReportData(
+            val name: String,
+            val acNo: String,
+            val phone: String,
+            val dateStr: String,
+            val recDate: Long,
+            val particular: String,
+            val groupRank: Int
+        )
+
+        val reportDataList = grouped.map { (_, itemList) ->
+            val hasCheque = itemList.any { it.type.equals("CHEQUE_BOOK", ignoreCase = true) }
+            val hasCard = itemList.any { it.type.equals("DEBIT_CARD", ignoreCase = true) || it.type.equals("PIN", ignoreCase = true) }
+
+            val first = itemList.first()
+            val latestRecDate = itemList.maxOfOrNull { it.receivedDate } ?: first.receivedDate
+            val dateStr = sdf.format(Date(latestRecDate))
+
+            val pair: Pair<String, Int> = when {
+                hasCheque && hasCard -> Pair("Cheque and Card", 1)
+                hasCheque -> Pair("Cheque Book", 2)
+                hasCard -> if (itemList.any { it.type.equals("DEBIT_CARD", ignoreCase = true) }) Pair("Debit Card", 3) else Pair("PIN Mailer", 3)
+                else -> Pair("DPS", 4)
+            }
+            val particular = pair.first
+            val groupRank = pair.second
+
+            AccountReportData(
+                name = first.customerName,
+                acNo = first.accountNumber,
+                phone = first.phoneNumber,
+                dateStr = dateStr,
+                recDate = latestRecDate,
+                particular = particular,
+                groupRank = groupRank
+            )
+        }
+
+        val sortedData = reportDataList.sortedWith(compareBy<AccountReportData> { it.groupRank }.thenByDescending { it.recDate })
+
+        val rows = sortedData.map {
+            listOf(it.name, it.acNo, it.phone, it.dateStr, it.particular)
+        }
+
+        return Triple(fileName, headers, rows)
     }
 }

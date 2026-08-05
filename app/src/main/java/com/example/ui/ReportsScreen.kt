@@ -57,6 +57,9 @@ fun ReportsScreen(
     var generatedMailText by remember { mutableStateOf("") }
 
     fun formatPdfFileName(fileName: String): String {
+        if (fileName.contains("Cheque and Card list", ignoreCase = true) || (fileName.endsWith(".pdf") && !fileName.contains("_"))) {
+            return if (fileName.lowercase().endsWith(".pdf")) fileName else "$fileName.pdf"
+        }
         val todayStr = SimpleDateFormat("d-M-yyyy", Locale.getDefault()).format(Date())
         val nameWithoutExt = fileName.substringBeforeLast(".pdf", fileName)
         
@@ -317,15 +320,13 @@ fun ReportsScreen(
                         onClick = {
                             val results = activeCards + activePins + activeCheques + activeDpsSlips
                             if (results.isEmpty()) return@Button
-                            val headers = listOf("TYPE", "AC NUMBER", "NAME", "PHONE NUMBER", "ADDRESS")
-                            val rows = results.map { item ->
-                                listOf(item.type, item.accountNumber, item.customerName, item.phoneNumber, item.address)
-                            }
+                            val (reportFileName, headers, rows) = PdfHelper.buildSearchResultReportRows(searchQuery, results)
+                            val cleanQuery = searchQuery.trim().ifEmpty { "Search" }
                             previewAndDownloadTable(
-                                title = "SEARCH RESULTS FOR '${searchQuery.uppercase()}'",
+                                title = "$cleanQuery CHEQUE AND CARD LIST",
                                 headers = headers,
                                 rows = rows,
-                                fileName = "search_results_report.pdf"
+                                fileName = reportFileName
                             )
                         },
                         enabled = totalSearchCount > 0,

@@ -329,6 +329,9 @@ fun MainContainer(viewModel: BankingViewModel) {
 @Composable
 fun UniversalSearchResultsView(viewModel: BankingViewModel) {
     val results = viewModel.getUniversalSearchResults(viewModel.searchQuery)
+    val context = LocalContext.current
+    var editingItem by remember { mutableStateOf<com.example.data.BankingItem?>(null) }
+    var letterNoticeItem by remember { mutableStateOf<com.example.data.BankingItem?>(null) }
 
     Column(
         modifier = Modifier
@@ -352,12 +355,10 @@ fun UniversalSearchResultsView(viewModel: BankingViewModel) {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(results) { res ->
                     val item = res.originalItem
-                    val context = LocalContext.current
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
-                                // Close search and jump to the corresponding module
                                 viewModel.searchQuery = ""
                                 when (res.moduleType) {
                                     "DEBIT_CARD" -> viewModel.currentScreen = "debit_card"
@@ -390,85 +391,24 @@ fun UniversalSearchResultsView(viewModel: BankingViewModel) {
                             Spacer(modifier = Modifier.height(6.dp))
 
                             if (item != null) {
-                                // Staying Days calculation
                                 val now = System.currentTimeMillis()
-                                val stayingDays = ((now - item.receivedDate) / (1000L * 3600 * 24)).coerceAtLeast(0)
-                                val destroyDateStr = SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(item.destroyAfter))
-
-                                // Display Specific Fields
-                                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                    Text("Account No: ${item.accountNumber}", fontSize = 12.sp, color = Color.LightGray)
-                                    com.example.util.WhatsAppClickablePhone(phoneNumber = item.phoneNumber, itemType = item.type)
-                                    Text("Address: ${item.address}", fontSize = 12.sp, color = Color.LightGray)
-                                    Text("Received Date: ${res.receivedDate}", fontSize = 12.sp, color = Color.LightGray)
-                                    Text("Staying Days: $stayingDays days in vault", fontSize = 12.sp, color = GoldLight, fontWeight = FontWeight.Bold)
-                                }
-
-                                Spacer(modifier = Modifier.height(8.dp))
-
-                                // Deliver/Destroy Option row or Status
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    // Status info
-                                    when {
-                                        item.isDestroyed -> {
-                                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                                Icon(Icons.Default.DeleteForever, contentDescription = null, tint = RedAccent, modifier = Modifier.size(16.dp))
-                                                Text("DESTROYED on $destroyDateStr", fontSize = 12.sp, color = RedAccent, fontWeight = FontWeight.Bold)
-                                            }
-                                        }
-                                        item.isDelivered -> {
-                                            val deliveryDateStr = if (item.deliveryDate > 0) {
-                                                SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(item.deliveryDate))
-                                            } else {
-                                                "N/A"
-                                            }
-                                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                                Icon(Icons.Default.CheckCircle, contentDescription = null, tint = GreenAccent, modifier = Modifier.size(16.dp))
-                                                Text("Delivered on $deliveryDateStr", fontSize = 12.sp, color = GreenAccent, fontWeight = FontWeight.Bold)
-                                            }
-                                        }
-                                        else -> {
-                                            Text("Status: Active/Pending", fontSize = 12.sp, color = GreenAccent, fontWeight = FontWeight.Bold)
-                                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                                // Destroy action
-                                                Button(
-                                                    onClick = {
-                                                        viewModel.updateBankingItem(item.copy(isDestroyed = true))
-                                                        Toast.makeText(context, "Successfully Destroyed/Expired!", Toast.LENGTH_SHORT).show()
-                                                    },
-                                                    colors = ButtonDefaults.buttonColors(containerColor = RedAccent, contentColor = Color.White),
-                                                    shape = RoundedCornerShape(6.dp),
-                                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
-                                                    modifier = Modifier.height(28.dp)
-                                                ) {
-                                                    Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(12.dp))
-                                                    Spacer(modifier = Modifier.width(4.dp))
-                                                    Text("Destroy", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                                }
-
-                                                // Deliver action
-                                                Button(
-                                                    onClick = {
-                                                        viewModel.markAsDelivered(item)
-                                                        Toast.makeText(context, "Successfully Delivered!", Toast.LENGTH_SHORT).show()
-                                                    },
-                                                    colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary, contentColor = SlateDark),
-                                                    shape = RoundedCornerShape(6.dp),
-                                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
-                                                    modifier = Modifier.height(28.dp)
-                                                ) {
-                                                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(12.dp))
-                                                    Spacer(modifier = Modifier.width(4.dp))
-                                                    Text("Deliver", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                                }
-                                            }
-                                        }
+                                val daysStaying = ((now - item.receivedDate) / (1000L * 3600 * 24)).toInt().coerceAtLeast(0)
+                                BankingItemRow(
+                                    item = item,
+                                    now = now,
+                                    showDeleteButton = false,
+                                    showDeliveryButton = viewModel.isLoggedIn && !item.isDelivered,
+                                    showMailedButton = false,
+                                    showDestructionButton = false,
+                                    onGenerateLetter = null,
+                                    onMarkDelivered = {
+                                        viewModel.markAsDelivered(item)
+                                        Toast.makeText(context, "Successfully Delivered!", Toast.LENGTH_SHORT).show()
+                                    },
+                                    onEdit = {
+                                        editingItem = item
                                     }
-                                }
+                                )
                             } else {
                                 // Customer hunting lead / Saved form search details
                                 Text(res.subtitle, fontSize = 12.sp, color = Color.LightGray)
@@ -487,6 +427,29 @@ fun UniversalSearchResultsView(viewModel: BankingViewModel) {
                 }
             }
         }
+    }
+
+    if (editingItem != null) {
+        EditBankingItemDialog(
+            item = editingItem!!,
+            onDismiss = { editingItem = null },
+            viewModel = viewModel
+        )
+    }
+
+    if (letterNoticeItem != null) {
+        CustomerNoticeLetterDialog(
+            item = letterNoticeItem!!,
+            onDismiss = { letterNoticeItem = null },
+            onGenerate = {
+                val targetItem = letterNoticeItem!!
+                com.example.util.PdfHelper.generateCustomerNoticeLetterPdf(
+                    context = context,
+                    fileName = "notice_letter_${targetItem.accountNumber}.pdf",
+                    item = targetItem
+                )
+            }
+        )
     }
 }
 

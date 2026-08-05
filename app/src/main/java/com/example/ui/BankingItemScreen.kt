@@ -40,9 +40,10 @@ fun BankingItemScreen(
 ) {
     val context = LocalContext.current
     val items by viewModel.allItems.collectAsStateWithLifecycle()
-    val filteredItems = items.filter { it.type == itemType }
+    val filteredItems = items.filter { it.type == itemType }.sortedWith(compareByDescending<BankingItem> { it.receivedDate }.thenByDescending { it.id })
 
     var editingItem by remember { mutableStateOf<BankingItem?>(null) }
+    var sectionSearchQuery by remember { mutableStateOf("") }
 
     var isAddingNew by remember { mutableStateOf(false) }
     var tabSelected by remember { mutableStateOf(0) } // 0 = Active, 1 = 30 Days Crossed, 2 = 90 Days Complete, 3 = Delivered List
@@ -105,9 +106,9 @@ fun BankingItemScreen(
 
     val currentDisplayList = when (tabSelected) {
         0 -> activeList
-        1 -> crossedList
-        2 -> completedList
-        3 -> deliveredList
+        1 -> deliveredList
+        2 -> crossedList
+        3 -> completedList
         else -> destroyedList
     }
 
@@ -174,6 +175,36 @@ fun BankingItemScreen(
                 }
             }
         }
+
+        // Dedicated Section Search Field
+        OutlinedTextField(
+            value = sectionSearchQuery,
+            onValueChange = { sectionSearchQuery = it },
+            placeholder = {
+                val sectionName = when (itemType) {
+                    "DEBIT_CARD" -> "Debit Cards"
+                    "CHEQUE_BOOK" -> "Cheque Books"
+                    "PIN" -> "PIN Mailers"
+                    else -> "DPS Records"
+                }
+                Text("Search in $sectionName (Name, A/C, Reg, Phone)...", fontSize = 12.sp)
+            },
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search Section", tint = GoldPrimary) },
+            trailingIcon = {
+                if (sectionSearchQuery.isNotEmpty()) {
+                    IconButton(onClick = { sectionSearchQuery = "" }) {
+                        Icon(Icons.Default.Clear, contentDescription = "Clear Search", tint = GoldPrimary)
+                    }
+                }
+            },
+            modifier = Modifier.fillMaxWidth().testTag("section_search_input"),
+            singleLine = true,
+            shape = RoundedCornerShape(10.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = GoldPrimary,
+                unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
+            )
+        )
 
         // Add Item Form (Expandable)
         AnimatedVisibility(
@@ -440,17 +471,17 @@ fun BankingItemScreen(
             Tab(
                 selected = tabSelected == 1,
                 onClick = { tabSelected = 1 },
-                text = { Text("30d Completed (${crossedList.size})", fontSize = 9.sp, fontWeight = FontWeight.Bold) }
+                text = { Text("Delivered (${deliveredList.size})", fontSize = 9.sp, fontWeight = FontWeight.Bold) }
             )
             Tab(
                 selected = tabSelected == 2,
                 onClick = { tabSelected = 2 },
-                text = { Text("90d Completed (${completedList.size})", fontSize = 9.sp, fontWeight = FontWeight.Bold) }
+                text = { Text("30d Completed (${crossedList.size})", fontSize = 9.sp, fontWeight = FontWeight.Bold) }
             )
             Tab(
                 selected = tabSelected == 3,
                 onClick = { tabSelected = 3 },
-                text = { Text("Delivered (${deliveredList.size})", fontSize = 9.sp, fontWeight = FontWeight.Bold) }
+                text = { Text("90d Completed (${completedList.size})", fontSize = 9.sp, fontWeight = FontWeight.Bold) }
             )
             Tab(
                 selected = tabSelected == 4,
@@ -580,6 +611,20 @@ fun BankingItemScreen(
             }
         }
 
+        // List of Records
+        val activeSearchList = if (sectionSearchQuery.isNotBlank()) {
+            filteredItems.filter {
+                it.customerName.contains(sectionSearchQuery, ignoreCase = true) ||
+                it.accountNumber.contains(sectionSearchQuery, ignoreCase = true) ||
+                it.regNo.contains(sectionSearchQuery, ignoreCase = true) ||
+                it.phoneNumber.contains(sectionSearchQuery, ignoreCase = true) ||
+                it.address.contains(sectionSearchQuery, ignoreCase = true) ||
+                it.remarks.contains(sectionSearchQuery, ignoreCase = true)
+            }.sortedWith(compareByDescending<BankingItem> { it.receivedDate }.thenByDescending { it.id })
+        } else {
+            emptyList()
+        }
+
         // Standardized Table Download Registry Row
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -588,40 +633,53 @@ fun BankingItemScreen(
         ) {
             val labelText = when (tabSelected) {
                 0 -> "Active Balancing Records (All Undelivered)"
-                1 -> "30 Days Completed Records (>=30 Days)"
-                2 -> "90 Days Completed Records (>=90 Days)"
-                3 -> "Delivered Log"
+                1 -> "Delivered Log"
+                2 -> "30 Days Completed Records (>=30 Days)"
+                3 -> "90 Days Completed Records (>=90 Days)"
                 else -> "Destruction Registry"
             }
             Text(labelText, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = GoldPrimary)
             
             Button(
                 onClick = {
-                    val labelSub = when (tabSelected) {
-                        0 -> "ACTIVE REGISTRY"
-                        1 -> "30 DAYS COMPLETED REGISTRY"
-                        2 -> "90 DAYS COMPLETED REGISTRY"
-                        3 -> "DELIVERED LOG"
-                        else -> "DESTRUCTION REGISTRY"
+                    if (sectionSearchQuery.isNotBlank()) {
+                        val (reportFileName, headers, rows) = com.example.util.PdfHelper.buildSearchResultReportRows(sectionSearchQuery, activeSearchList)
+                        val cleanQuery = sectionSearchQuery.trim().ifEmpty { "Search" }
+                        val pdfTitle = "$cleanQuery CHEQUE AND CARD LIST"
+                        previewTitle = pdfTitle
+                        previewHeaders = headers
+                        previewRows = rows
+                        onConfirmDownload = {
+                            com.example.util.PdfHelper.generateTablePdf(context, reportFileName, pdfTitle, headers, rows)
+                        }
+                        showPreviewDialog = true
+                    } else {
+                        val labelSub = when (tabSelected) {
+                            0 -> "ACTIVE REGISTRY"
+                            1 -> "DELIVERED LOG"
+                            2 -> "30 DAYS COMPLETED REGISTRY"
+                            3 -> "90 DAYS COMPLETED REGISTRY"
+                            else -> "DESTRUCTION REGISTRY"
+                        }
+                        val pdfTitle = "${itemType.replace("_", " ")} $labelSub"
+                        val headers = listOf("TYPE", "AC NUMBER", "NAME", "PHONE NUMBER", "ADDRESS")
+                        val rows = currentDisplayList.map { item ->
+                            listOf(item.type, item.accountNumber, item.customerName, item.phoneNumber, item.address)
+                        }
+                        val formattedDate = java.text.SimpleDateFormat("d-M-yyyy", java.util.Locale.getDefault()).format(java.util.Date())
+                        val formattedTitle = pdfTitle.split(" ").map { word -> word.lowercase().replaceFirstChar { if (it.isLowerCase()) it.titlecase(java.util.Locale.getDefault()) else it.toString() } }.joinToString(" ")
+                        val reportFileName = "$formattedTitle-$formattedDate.pdf"
+                        
+                        previewTitle = pdfTitle
+                        previewHeaders = headers
+                        previewRows = rows
+                        onConfirmDownload = {
+                            com.example.util.PdfHelper.generateTablePdf(context, reportFileName, pdfTitle, headers, rows)
+                        }
+                        showPreviewDialog = true
                     }
-                    val pdfTitle = "${itemType.replace("_", " ")} $labelSub"
-                    val headers = listOf("TYPE", "AC NUMBER", "NAME", "PHONE NUMBER", "ADDRESS")
-                    val rows = currentDisplayList.map { item ->
-                        listOf(item.type, item.accountNumber, item.customerName, item.phoneNumber, item.address)
-                    }
-                    val formattedDate = java.text.SimpleDateFormat("d-M-yyyy", java.util.Locale.getDefault()).format(java.util.Date())
-                    val formattedTitle = pdfTitle.split(" ").map { word -> word.lowercase().replaceFirstChar { if (it.isLowerCase()) it.titlecase(java.util.Locale.getDefault()) else it.toString() } }.joinToString(" ")
-                    val reportFileName = "$formattedTitle-$formattedDate.pdf"
-                    
-                    previewTitle = pdfTitle
-                    previewHeaders = headers
-                    previewRows = rows
-                    onConfirmDownload = {
-                        com.example.util.PdfHelper.generateTablePdf(context, reportFileName, pdfTitle, headers, rows)
-                    }
-                    showPreviewDialog = true
                 },
-                enabled = currentDisplayList.isNotEmpty(),
+                enabled = currentDisplayList.isNotEmpty() || activeSearchList.isNotEmpty(),
                 colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary, contentColor = SlateDark),
                 shape = RoundedCornerShape(4.dp),
                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
@@ -632,8 +690,9 @@ fun BankingItemScreen(
             }
         }
 
-        // List of Records
-        if (currentDisplayList.isEmpty()) {
+        val displayListToRender = if (sectionSearchQuery.isNotBlank()) activeSearchList else currentDisplayList
+
+        if (displayListToRender.isEmpty()) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -642,11 +701,12 @@ fun BankingItemScreen(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(
-                        imageVector = when (tabSelected) {
-                            0 -> Icons.Default.AllInbox
-                            1 -> Icons.Default.Warning
-                            2 -> Icons.Default.DeleteSweep
-                            3 -> Icons.Default.CheckCircle
+                        imageVector = when {
+                            sectionSearchQuery.isNotBlank() -> Icons.Default.SearchOff
+                            tabSelected == 0 -> Icons.Default.AllInbox
+                            tabSelected == 1 -> Icons.Default.CheckCircle
+                            tabSelected == 2 -> Icons.Default.Warning
+                            tabSelected == 3 -> Icons.Default.DeleteSweep
                             else -> Icons.Default.DeleteForever
                         },
                         contentDescription = "Empty",
@@ -655,11 +715,12 @@ fun BankingItemScreen(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = when (tabSelected) {
-                            0 -> "No active items in balancing."
-                            1 -> "No 30 days completed items found."
-                            2 -> "No 90 days completed items found."
-                            3 -> "No delivered items logged."
+                        text = when {
+                            sectionSearchQuery.isNotBlank() -> "No records matched '$sectionSearchQuery' in this section."
+                            tabSelected == 0 -> "No active items in balancing."
+                            tabSelected == 1 -> "No delivered items logged."
+                            tabSelected == 2 -> "No 30 days completed items found."
+                            tabSelected == 3 -> "No 90 days completed items found."
                             else -> "No items marked for destruction."
                         },
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
@@ -671,19 +732,79 @@ fun BankingItemScreen(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                if (tabSelected == 3) {
+                if (sectionSearchQuery.isNotBlank() || tabSelected !in listOf(0, 1)) {
+                    // Render flat list directly (no date folders for 30d / 90d complete or search)
+                    val listToRender = if (sectionSearchQuery.isNotBlank()) activeSearchList else currentDisplayList.sortedWith(
+                        compareByDescending<BankingItem> { it.receivedDate }.thenByDescending { it.id }
+                    )
+                    if (sectionSearchQuery.isNotBlank()) {
+                        item {
+                            Text(
+                                text = "Search Matches in ${itemType.replace("_", " ")} (${activeSearchList.size})",
+                                fontWeight = FontWeight.Bold,
+                                color = GoldPrimary,
+                                fontSize = 12.sp,
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            )
+                        }
+                    }
+                    items(listToRender, key = { "flat_${it.id}" }) { item ->
+                        val daysStaying = ((now - item.receivedDate) / (1000L * 3600 * 24)).toInt().coerceAtLeast(0)
+                        BankingItemRow(
+                            item = item,
+                            now = now,
+                            showDeleteButton = viewModel.isLoggedIn && viewModel.currentUser?.isToufiq == true,
+                            showDeliveryButton = viewModel.isLoggedIn && !item.isDelivered,
+                            showMailedButton = viewModel.isLoggedIn && (tabSelected == 2 || tabSelected == 3),
+                            showDestructionButton = viewModel.isLoggedIn && (tabSelected == 3) && itemType != "DPS",
+                            onGenerateLetter = if (tabSelected == 2 || tabSelected == 3 || daysStaying >= 30 || item.isLetterIssued) {
+                                { letterNoticeItem = item }
+                            } else null,
+                            isMultiSelectMode = isMultiSelectMode,
+                            isSelected = item.id in selectedItemIds,
+                            onToggleSelect = {
+                                selectedItemIds = if (item.id in selectedItemIds) {
+                                    selectedItemIds - item.id
+                                } else {
+                                    selectedItemIds + item.id
+                                }
+                            },
+                            onMarkDelivered = {
+                                viewModel.markAsDelivered(item)
+                            },
+                            onMarkDestroyed = {
+                                viewModel.updateBankingItem(item.copy(isDestroyed = true))
+                            },
+                            onMarkMailed = {
+                                viewModel.markAsLetterIssued(item)
+                            },
+                            onDelete = {
+                                viewModel.deleteBankingItem(item)
+                            },
+                            onUndoDelivery = if (item.isDelivered) {
+                                { viewModel.revertDelivery(item) }
+                            } else null,
+                            onEdit = {
+                                editingItem = item
+                            }
+                        )
+                    }
+                } else {
+                    // Date-wise folder list structure (for Active [tab 0] & Delivered [tab 1] only)
                     val groupSdf = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
-                    val deliveredGroups = deliveredList.groupBy { item ->
-                        val date = if (item.deliveryDate > 0L) Date(item.deliveryDate) else Date(item.receivedDate)
+                    val groupedItemsMap = currentDisplayList.groupBy { item ->
+                        val date = if (tabSelected == 1 && item.deliveryDate > 0L) Date(item.deliveryDate) else Date(item.receivedDate)
                         groupSdf.format(date)
                     }
-                    val sortedKeys = deliveredGroups.keys.sortedDescending()
+                    val sortedKeys = groupedItemsMap.keys.sortedDescending()
 
                     sortedKeys.forEach { dateKey ->
-                        val groupItems = deliveredGroups[dateKey] ?: emptyList()
+                        val groupItems = (groupedItemsMap[dateKey] ?: emptyList()).sortedWith(
+                            compareByDescending<BankingItem> { it.receivedDate }.thenByDescending { it.id }
+                        )
                         val isCollapsed = dateKey in collapsedFolders
 
-                        item(key = "folder_$dateKey") {
+                        item(key = "folder_${tabSelected}_$dateKey") {
                             Card(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -712,13 +833,13 @@ fun BankingItemScreen(
                                         Spacer(modifier = Modifier.width(12.dp))
                                         Column {
                                             Text(
-                                                text = "$dateKey >> Items List",
+                                                text = if (tabSelected == 1) "$dateKey >> Delivered Items List" else "$dateKey >> Received Items List",
                                                 fontWeight = FontWeight.Bold,
                                                 fontSize = 14.sp,
                                                 color = Color.White
                                             )
                                             Text(
-                                                text = "${groupItems.size} items delivered",
+                                                text = "${groupItems.size} items",
                                                 fontSize = 11.sp,
                                                 color = Color.LightGray
                                             )
@@ -736,14 +857,27 @@ fun BankingItemScreen(
 
                         if (!isCollapsed) {
                             items(groupItems, key = { "item_${it.id}" }) { item ->
-                                Row(modifier = Modifier.padding(start = 12.dp)) {
+                                val daysStaying = ((now - item.receivedDate) / (1000L * 3600 * 24)).toInt().coerceAtLeast(0)
+                                Row(modifier = Modifier.padding(start = 8.dp)) {
                                     BankingItemRow(
                                         item = item,
                                         now = now,
                                         showDeleteButton = viewModel.isLoggedIn && viewModel.currentUser?.isToufiq == true,
-                                        showDeliveryButton = viewModel.isLoggedIn,
-                                        showMailedButton = viewModel.isLoggedIn && tabSelected == 1,
-                                        showDestructionButton = viewModel.isLoggedIn && tabSelected == 2 && itemType != "DPS",
+                                        showDeliveryButton = viewModel.isLoggedIn && !item.isDelivered,
+                                        showMailedButton = viewModel.isLoggedIn && (tabSelected == 2 || tabSelected == 3),
+                                        showDestructionButton = viewModel.isLoggedIn && (tabSelected == 3) && itemType != "DPS",
+                                        onGenerateLetter = if (tabSelected == 2 || tabSelected == 3 || daysStaying >= 30 || item.isLetterIssued) {
+                                            { letterNoticeItem = item }
+                                        } else null,
+                                        isMultiSelectMode = isMultiSelectMode,
+                                        isSelected = item.id in selectedItemIds,
+                                        onToggleSelect = {
+                                            selectedItemIds = if (item.id in selectedItemIds) {
+                                                selectedItemIds - item.id
+                                            } else {
+                                                selectedItemIds + item.id
+                                            }
+                                        },
                                         onMarkDelivered = {
                                             viewModel.markAsDelivered(item)
                                         },
@@ -756,9 +890,9 @@ fun BankingItemScreen(
                                         onDelete = {
                                             viewModel.deleteBankingItem(item)
                                         },
-                                        onUndoDelivery = {
-                                            viewModel.revertDelivery(item)
-                                        },
+                                        onUndoDelivery = if (item.isDelivered) {
+                                            { viewModel.revertDelivery(item) }
+                                        } else null,
                                         onEdit = {
                                             editingItem = item
                                         }
@@ -766,48 +900,6 @@ fun BankingItemScreen(
                                 }
                             }
                         }
-                    }
-                } else {
-                    items(currentDisplayList, key = { it.id }) { item ->
-                        val daysStaying = ((now - item.receivedDate) / (1000L * 3600 * 24)).toInt().coerceAtLeast(0)
-                        BankingItemRow(
-                            item = item,
-                            now = now,
-                            showDeleteButton = viewModel.isLoggedIn && viewModel.currentUser?.isToufiq == true,
-                            showDeliveryButton = viewModel.isLoggedIn,
-                            showMailedButton = viewModel.isLoggedIn && tabSelected == 1,
-                            showDestructionButton = viewModel.isLoggedIn && tabSelected == 2 && itemType != "DPS",
-                            onGenerateLetter = if (tabSelected == 1 || daysStaying >= 30 || item.isLetterIssued) {
-                                { letterNoticeItem = item }
-                            } else null,
-                            isMultiSelectMode = isMultiSelectMode,
-                            isSelected = item.id in selectedItemIds,
-                            onToggleSelect = {
-                                selectedItemIds = if (item.id in selectedItemIds) {
-                                    selectedItemIds - item.id
-                                } else {
-                                    selectedItemIds + item.id
-                                }
-                            },
-                            onMarkDelivered = {
-                                viewModel.markAsDelivered(item)
-                            },
-                            onMarkDestroyed = {
-                                viewModel.updateBankingItem(item.copy(isDestroyed = true))
-                            },
-                            onMarkMailed = {
-                                viewModel.markAsLetterIssued(item)
-                            },
-                            onDelete = {
-                                viewModel.deleteBankingItem(item)
-                            },
-                            onUndoDelivery = {
-                                viewModel.revertDelivery(item)
-                            },
-                            onEdit = {
-                                editingItem = item
-                            }
-                        )
                     }
                 }
             }
@@ -849,88 +941,10 @@ fun BankingItemScreen(
     }
 
     if (editingItem != null) {
-        var editName by remember { mutableStateOf(editingItem?.customerName ?: "") }
-        var editAcNo by remember { mutableStateOf(editingItem?.accountNumber ?: "") }
-        var editRegNo by remember { mutableStateOf(editingItem?.regNo ?: "") }
-        var editPhone by remember { mutableStateOf(editingItem?.phoneNumber ?: "") }
-        var editAddress by remember { mutableStateOf(editingItem?.address ?: "") }
-        var editRemarks by remember { mutableStateOf(editingItem?.remarks ?: "") }
-
-        AlertDialog(
-            onDismissRequest = { editingItem = null },
-            title = { Text("Edit Saved Entry", color = GoldPrimary, fontWeight = FontWeight.Bold) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedTextField(
-                        value = editName,
-                        onValueChange = { editName = it },
-                        label = { Text("Customer Name") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
-                    OutlinedTextField(
-                        value = editAcNo,
-                        onValueChange = { editAcNo = it },
-                        label = { Text("Account Number") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
-                    OutlinedTextField(
-                        value = editRegNo,
-                        onValueChange = { editRegNo = it },
-                        label = { Text("Reg No (Registration Number)") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
-                    OutlinedTextField(
-                        value = editPhone,
-                        onValueChange = { editPhone = it },
-                        label = { Text("Phone Number") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
-                    OutlinedTextField(
-                        value = editAddress,
-                        onValueChange = { editAddress = it },
-                        label = { Text("Address") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
-                    OutlinedTextField(
-                        value = editRemarks,
-                        onValueChange = { editRemarks = it },
-                        label = { Text("Remarks") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        editingItem?.let { item ->
-                            val updated = item.copy(
-                                customerName = editName.uppercase().trim(),
-                                accountNumber = editAcNo.trim(),
-                                phoneNumber = editPhone.trim(),
-                                address = editAddress.uppercase().trim(),
-                                remarks = editRemarks.uppercase().trim(),
-                                regNo = editRegNo.trim()
-                            )
-                            viewModel.updateBankingItem(updated)
-                        }
-                        editingItem = null
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary, contentColor = SlateDark)
-                ) {
-                    Text("Save Changes", fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { editingItem = null }) {
-                    Text("Cancel", color = Color.White)
-                }
-            }
+        EditBankingItemDialog(
+            item = editingItem!!,
+            onDismiss = { editingItem = null },
+            viewModel = viewModel
         )
     }
 
@@ -1342,10 +1356,10 @@ fun BankingItemRow(
     isMultiSelectMode: Boolean = false,
     isSelected: Boolean = false,
     onToggleSelect: (() -> Unit)? = null,
-    onMarkDelivered: () -> Unit,
-    onMarkDestroyed: () -> Unit,
+    onMarkDelivered: () -> Unit = {},
+    onMarkDestroyed: () -> Unit = {},
     onMarkMailed: (() -> Unit)? = null,
-    onDelete: () -> Unit,
+    onDelete: () -> Unit = {},
     onUndoDelivery: (() -> Unit)? = null,
     onEdit: (() -> Unit)? = null
 ) {
@@ -1455,7 +1469,8 @@ fun BankingItemRow(
             // Expanded details
             com.example.util.WhatsAppClickablePhone(
                 phoneNumber = item.phoneNumber,
-                itemType = item.type
+                itemType = item.type,
+                item = item
             )
             if (item.regNo.isNotBlank()) {
                 Text(text = "Reg No: ${item.regNo}", fontSize = 12.sp, color = GoldLight, fontWeight = FontWeight.Medium)
@@ -1694,6 +1709,95 @@ fun CustomerNoticeLetterDialog(
         dismissButton = {
             TextButton(onClick = onDismiss) {
                 Text("Cancel")
+            }
+        }
+    )
+}
+
+@Composable
+fun EditBankingItemDialog(
+    item: com.example.data.BankingItem,
+    onDismiss: () -> Unit,
+    viewModel: BankingViewModel
+) {
+    var editName by remember { mutableStateOf(item.customerName) }
+    var editAcNo by remember { mutableStateOf(item.accountNumber) }
+    var editRegNo by remember { mutableStateOf(item.regNo) }
+    var editPhone by remember { mutableStateOf(item.phoneNumber) }
+    var editAddress by remember { mutableStateOf(item.address) }
+    var editRemarks by remember { mutableStateOf(item.remarks) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit Saved Entry", color = GoldPrimary, fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    value = editName,
+                    onValueChange = { editName = it },
+                    label = { Text("Customer Name") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = editAcNo,
+                    onValueChange = { editAcNo = it },
+                    label = { Text("Account Number") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = editRegNo,
+                    onValueChange = { editRegNo = it },
+                    label = { Text("Reg No (Registration Number)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = editPhone,
+                    onValueChange = { editPhone = it },
+                    label = { Text("Phone Number") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = editAddress,
+                    onValueChange = { editAddress = it },
+                    label = { Text("Address") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = editRemarks,
+                    onValueChange = { editRemarks = it },
+                    label = { Text("Remarks") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val updated = item.copy(
+                        customerName = editName.uppercase().trim(),
+                        accountNumber = editAcNo.trim(),
+                        phoneNumber = editPhone.trim(),
+                        address = editAddress.uppercase().trim(),
+                        remarks = editRemarks.uppercase().trim(),
+                        regNo = editRegNo.trim()
+                    )
+                    viewModel.updateBankingItem(updated)
+                    onDismiss()
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary, contentColor = SlateDark)
+            ) {
+                Text("Save Changes", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = Color.White)
             }
         }
     )

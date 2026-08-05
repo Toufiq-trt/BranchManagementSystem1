@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface BankingDao {
     // --- Banking Items (Debit Cards, PINs, Cheques, DPS) ---
-    @Query("SELECT * FROM banking_items WHERE type = :type ORDER BY receivedDate DESC")
+    @Query("SELECT * FROM banking_items WHERE type = :type ORDER BY receivedDate DESC, id DESC")
     fun getItemsByType(type: String): Flow<List<BankingItem>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -18,7 +18,7 @@ interface BankingDao {
     @Delete
     suspend fun deleteItem(item: BankingItem)
 
-    @Query("SELECT * FROM banking_items ORDER BY receivedDate DESC")
+    @Query("SELECT * FROM banking_items ORDER BY receivedDate DESC, id DESC")
     fun getAllItems(): Flow<List<BankingItem>>
 
     // --- Quantity Logs (Prize Bonds, Pay Orders) ---
