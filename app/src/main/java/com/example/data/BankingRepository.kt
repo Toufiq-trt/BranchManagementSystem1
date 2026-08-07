@@ -20,7 +20,8 @@ class BankingRepository(private val bankingDao: BankingDao) {
         receivedDateOverride: Long? = null,
         remarks: String,
         isDemo: Boolean = false,
-        regNo: String = ""
+        regNo: String = "",
+        fatherName: String = ""
     ): Long {
         val received = receivedDateOverride ?: System.currentTimeMillis()
         val destroy = received + (90L * 24L * 60L * 60L * 1000L) // 90 days later
@@ -36,7 +37,8 @@ class BankingRepository(private val bankingDao: BankingDao) {
             isDestroyed = false,
             isBalanced = true, // Automatically create active balancing entry
             isDemo = isDemo,
-            regNo = regNo.trim()
+            regNo = regNo.trim(),
+            fatherName = fatherName.uppercase().trim()
         )
         val id = bankingDao.insertItem(item)
         val finalItem = item.copy(id = id.toInt())
@@ -388,11 +390,34 @@ class BankingRepository(private val bankingDao: BankingDao) {
     }
 
     suspend fun checkDuplicateItem(type: String, name: String, accountNumber: String): Boolean {
-        return bankingDao.checkDuplicateItem(type, name.uppercase().trim(), accountNumber.trim()) != null
+        val trimmedAc = accountNumber.trim()
+        if (trimmedAc.isNotBlank() && bankingDao.getItemByAccount(type, trimmedAc) != null) return true
+        return bankingDao.checkDuplicateItem(type, name.uppercase().trim(), trimmedAc) != null
     }
 
     suspend fun getDuplicateItem(type: String, name: String, accountNumber: String): BankingItem? {
-        return bankingDao.checkDuplicateItem(type, name.uppercase().trim(), accountNumber.trim())
+        return getItemByAccountOrName(type, name, accountNumber)
+    }
+
+    suspend fun getItemByAccountOrName(type: String, name: String, accountNumber: String): BankingItem? {
+        val trimmedAc = accountNumber.trim()
+        if (trimmedAc.isNotBlank()) {
+            val itemByAc = bankingDao.getItemByAccount(type, trimmedAc)
+            if (itemByAc != null) return itemByAc
+        }
+        val trimmedName = name.uppercase().trim()
+        if (trimmedName.isNotBlank()) {
+            return bankingDao.checkDuplicateItem(type, trimmedName, trimmedAc)
+        }
+        return null
+    }
+
+    suspend fun isItemDeletedByAccount(type: String, customerName: String, accountNumber: String): Boolean {
+        val trimmedAc = accountNumber.trim()
+        if (trimmedAc.isNotBlank()) {
+            if (bankingDao.findDeletedItemByAccount(type, trimmedAc) != null) return true
+        }
+        return isItemDeleted(type, customerName, accountNumber)
     }
 
     suspend fun clearAllDemoData() {

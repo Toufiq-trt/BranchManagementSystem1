@@ -568,7 +568,10 @@ fun AtmCalculatorScreen(
                                     
                                     viewModel.addAtmLoadingLog(
                                         atmName = selectedAtm,
-                                        c1Rem = c1RemInt, c2Rem = c2RemInt, c3Rem = c3RemInt, c4Rem = c4RemInt,
+                                        c1Rem = if (isAtm25) c1RemInt + c1RejInt else c1RemInt,
+                                        c2Rem = if (isAtm25) c2RemInt + c2RejInt else c2RemInt,
+                                        c3Rem = if (isAtm25) c3RemInt + c3RejInt else c3RemInt,
+                                        c4Rem = if (isAtm25) c4RemInt + c4RejInt else c4RemInt,
                                         c1Load = finalC1Load, c2Load = finalC2Load, c3Load = finalC3Load, c4Load = finalC4Load,
                                         totalLoading = totalLoadAmount,
                                         operator = operatorName,
@@ -706,11 +709,10 @@ Remarks: ${log.remarks.ifBlank { "N/A" }}
                                                 previewTitle = "ATM LOAD REPORT"
                                                 previewTextContent = slipContent
                                                 onConfirmDownload = {
-                                                    PdfHelper.generateAndSharePdf(
+                                                    PdfHelper.generateAtmReplenishmentPdf(
                                                         context = context,
                                                         fileName = reportFileName,
-                                                        title = "ATM LOAD REPORT",
-                                                        content = slipContent
+                                                        log = log
                                                     )
                                                 }
                                                 showPreviewDialog = true

@@ -141,6 +141,9 @@ interface BankingDao {
     @Query("SELECT * FROM banking_items WHERE type = :type AND customerName = :name AND accountNumber = :accountNumber LIMIT 1")
     suspend fun checkDuplicateItem(type: String, name: String, accountNumber: String): BankingItem?
 
+    @Query("SELECT * FROM banking_items WHERE type = :type AND accountNumber = :accountNumber LIMIT 1")
+    suspend fun getItemByAccount(type: String, accountNumber: String): BankingItem?
+
     @Query("DELETE FROM banking_items WHERE isDemo = 1")
     suspend fun clearDemoBankingItems()
 
@@ -186,4 +189,7 @@ interface BankingDao {
 
     @Query("SELECT * FROM deleted_items_tracker WHERE type = :type AND customerName = :customerName AND accountNumber = :accountNumber LIMIT 1")
     suspend fun findDeletedItem(type: String, customerName: String, accountNumber: String): DeletedItemTracker?
+
+    @Query("SELECT * FROM deleted_items_tracker WHERE type = :type AND accountNumber = :accountNumber LIMIT 1")
+    suspend fun findDeletedItemByAccount(type: String, accountNumber: String): DeletedItemTracker?
 }

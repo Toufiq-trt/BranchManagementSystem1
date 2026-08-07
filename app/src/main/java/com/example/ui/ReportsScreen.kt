@@ -135,8 +135,6 @@ fun ReportsScreen(
     val tabs = listOf(
         "Active Cards",
         "Active Cheques",
-        "Active DPS Slips",
-        "Active Pins",
         "1 Month Complete",
         "Destruction List",
         "Destruction Log",
@@ -206,8 +204,6 @@ fun ReportsScreen(
     // Core Filtering Rules for Security Items
     val activeCards = filteredItems.filter { it.type == "DEBIT_CARD" && !it.isDelivered && !it.isDestroyed }
     val activeCheques = filteredItems.filter { it.type == "CHEQUE_BOOK" && !it.isDelivered && !it.isDestroyed }
-    val activeDpsSlips = filteredItems.filter { it.type == "DPS" && !it.isDelivered && !it.isDestroyed }
-    val activePins = filteredItems.filter { it.type == "PIN" && !it.isDelivered && !it.isDestroyed }
 
     // 1 Month Complete List: Crossed 30 days but not yet 90 days, undelivered, undestroyed, not already marked as mailed
     val oneMonthCompleteList = filteredItems.filter {
@@ -302,7 +298,7 @@ fun ReportsScreen(
         ) {
             if (searchQuery.isNotBlank()) {
                 // RENDER GROUPED SEARCH RESULTS FOR ACTIVE SECURITY ITEMS
-                val totalSearchCount = activeCards.size + activePins.size + activeCheques.size + activeDpsSlips.size
+                val totalSearchCount = activeCards.size + activeCheques.size
                 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -318,7 +314,7 @@ fun ReportsScreen(
 
                     Button(
                         onClick = {
-                            val results = activeCards + activePins + activeCheques + activeDpsSlips
+                            val results = activeCards + activeCheques
                             if (results.isEmpty()) return@Button
                             val (reportFileName, headers, rows) = PdfHelper.buildSearchResultReportRows(searchQuery, results)
                             val cleanQuery = searchQuery.trim().ifEmpty { "Search" }
@@ -371,29 +367,7 @@ fun ReportsScreen(
                             }
                         }
 
-                        // 2. PINS Group (Second)
-                        if (activePins.isNotEmpty()) {
-                            item {
-                                Surface(
-                                    color = SlateDark,
-                                    shape = RoundedCornerShape(4.dp),
-                                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
-                                ) {
-                                    Text(
-                                        text = "PINS (${activePins.size})",
-                                        fontWeight = FontWeight.Bold,
-                                        color = GoldPrimary,
-                                        fontSize = 12.sp,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
-                                    )
-                                }
-                            }
-                            items(activePins) { item ->
-                                SearchResultCard(item)
-                            }
-                        }
-
-                        // 3. CHEQUE BOOKS Group (Third)
+                        // 2. CHEQUE BOOKS Group (Second)
                         if (activeCheques.isNotEmpty()) {
                             item {
                                 Surface(
@@ -414,46 +388,14 @@ fun ReportsScreen(
                                 SearchResultCard(item)
                             }
                         }
-
-                        // 4. DPS SLIPS Group (Fourth)
-                        if (activeDpsSlips.isNotEmpty()) {
-                            item {
-                                Surface(
-                                    color = SlateDark,
-                                    shape = RoundedCornerShape(4.dp),
-                                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
-                                ) {
-                                    Text(
-                                        text = "DPS SLIPS (${activeDpsSlips.size})",
-                                        fontWeight = FontWeight.Bold,
-                                        color = GoldPrimary,
-                                        fontSize = 12.sp,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
-                                    )
-                                }
-                            }
-                            items(activeDpsSlips) { item ->
-                                SearchResultCard(item)
-                            }
-                        }
                     }
                 }
             } else {
-                // ---- TABS 0 - 3: ACTIVE ITEMS ----
+                // ---- TABS 0 - 1: ACTIVE ITEMS ----
                 when (selectedReportTab) {
-                    0, 1, 2, 3 -> {
-                        val activeList = when (selectedReportTab) {
-                            0 -> activeCards
-                            1 -> activeCheques
-                            2 -> activeDpsSlips
-                            else -> activePins
-                        }
-                        val itemTypeLabel = when (selectedReportTab) {
-                            0 -> "ACTIVE DEBIT CARDS"
-                            1 -> "ACTIVE CHEQUE BOOKS"
-                            2 -> "ACTIVE DPS SLIPS"
-                            else -> "ACTIVE PINS"
-                        }
+                    0, 1 -> {
+                        val activeList = if (selectedReportTab == 0) activeCards else activeCheques
+                        val itemTypeLabel = if (selectedReportTab == 0) "ACTIVE DEBIT CARDS" else "ACTIVE CHEQUE BOOKS"
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -512,8 +454,8 @@ fun ReportsScreen(
                         }
                     }
 
-                    // ---- TAB 4: 1 MONTH COMPLETE ----
-                    4 -> {
+                    // ---- TAB 2: 1 MONTH COMPLETE ----
+                    2 -> {
                         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             // High-Craft Premium Accent Action Bar
                             Row(
@@ -646,8 +588,8 @@ fun ReportsScreen(
                         }
                     }
 
-                    // ---- TAB 5: DESTRUCTION LIST ----
-                    5 -> {
+                    // ---- TAB 3: DESTRUCTION LIST ----
+                    3 -> {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -732,8 +674,8 @@ fun ReportsScreen(
                         }
                     }
 
-                    // ---- TAB 6: DESTRUCTION LOG (GROUPED BY DESTRUCTION DATE) ----
-                    6 -> {
+                    // ---- TAB 4: DESTRUCTION LOG (GROUPED BY DESTRUCTION DATE) ----
+                    4 -> {
                         Text(
                             text = "Destruction Audit Log",
                             fontWeight = FontWeight.Bold,
@@ -802,8 +744,8 @@ fun ReportsScreen(
                         }
                     }
 
-                    // ---- TAB 7: MAILED LIST ----
-                    7 -> {
+                    // ---- TAB 5: MAILED LIST ----
+                    5 -> {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -874,8 +816,8 @@ fun ReportsScreen(
                         }
                     }
 
-                    // ---- TAB 8: ATM HISTORY ----
-                    8 -> {
+                    // ---- TAB 6: ATM HISTORY ----
+                    6 -> {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -955,8 +897,8 @@ fun ReportsScreen(
                         }
                     }
 
-                    // ---- TAB 9: PRIZE BONDS ----
-                    9 -> {
+                    // ---- TAB 7: PRIZE BONDS ----
+                    7 -> {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -1010,8 +952,8 @@ fun ReportsScreen(
                         }
                     }
 
-                    // ---- TAB 10: PAYORDERS ----
-                    10 -> {
+                    // ---- TAB 8: PAYORDERS ----
+                    8 -> {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,

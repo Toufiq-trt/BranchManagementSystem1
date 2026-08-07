@@ -27,6 +27,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.platform.LocalContext
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import com.example.ui.*
 import com.example.ui.theme.*
 import kotlinx.coroutines.launch
@@ -36,6 +40,11 @@ import java.util.*
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        try {
+            com.google.firebase.FirebaseApp.initializeApp(this)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
         enableEdgeToEdge()
         setContent {
             val viewModel: BankingViewModel = viewModel()
@@ -77,6 +86,7 @@ fun MainContainer(viewModel: BankingViewModel) {
     // Navigation lists
     val menuItems = listOf(
         NavigationItem("dashboard", "Dashboard", Icons.Default.Dashboard),
+        NavigationItem("financial_advisor", "Financial Advisor", Icons.Default.Psychology),
         NavigationItem("reports", "All Reports", Icons.Default.Assessment),
         NavigationItem("atm_calc", "ATM Replenishment", Icons.Default.LocalAtm),
         NavigationItem("hunting", "Customer Findings", Icons.Default.Groups),
@@ -100,7 +110,7 @@ fun MainContainer(viewModel: BankingViewModel) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(110.dp)
+                            .height(115.dp)
                             .background(
                                 brush = Brush.horizontalGradient(
                                     colors = listOf(SlateDark, SlateSecondary)
@@ -109,21 +119,32 @@ fun MainContainer(viewModel: BankingViewModel) {
                             .padding(16.dp),
                         contentAlignment = Alignment.BottomStart
                     ) {
-                        Column {
-                            Text(
-                                text = "TOUFIQ'S SMART",
-                                color = Color.White.copy(alpha = 0.8f),
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.5.sp
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Image(
+                                painter = painterResource(id = com.example.R.drawable.app_logo),
+                                contentDescription = "App Logo",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .clip(RoundedCornerShape(8.dp))
                             )
-                            Text(
-                                text = "BANKING TRACKER",
-                                color = GoldPrimary,
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 1.sp
-                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = "TOUFIQ'S SMART",
+                                    color = Color.White.copy(alpha = 0.8f),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.5.sp
+                                )
+                                Text(
+                                    text = "BANKING TRACKER",
+                                    color = GoldPrimary,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 1.sp
+                                )
+                            }
                         }
                     }
 
@@ -225,10 +246,19 @@ fun MainContainer(viewModel: BankingViewModel) {
                                     }
                                 }
                                 Spacer(modifier = Modifier.width(4.dp))
+                                Image(
+                                    painter = painterResource(id = com.example.R.drawable.app_logo),
+                                    contentDescription = "App Logo",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .clip(RoundedCornerShape(6.dp))
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
                                 Text(
                                     text = "Branch Management System",
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 16.sp,
+                                    fontSize = 15.sp,
                                     color = GoldPrimary
                                 )
                             }
@@ -256,7 +286,7 @@ fun MainContainer(viewModel: BankingViewModel) {
                                 OutlinedTextField(
                                     value = viewModel.searchQuery,
                                     onValueChange = { viewModel.searchQuery = it },
-                                    placeholder = { Text("Search instantly across cards, PINs, cheque books, DPS...", fontSize = 12.sp) },
+                                    placeholder = { Text("Search instantly across debit cards, cheque books, forms...", fontSize = 12.sp) },
                                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search", tint = GoldPrimary) },
                                     trailingIcon = {
                                         if (viewModel.searchQuery.isNotBlank()) {
@@ -294,9 +324,7 @@ fun MainContainer(viewModel: BankingViewModel) {
                             "dashboard" -> DashboardScreen(viewModel, onNavigate = { viewModel.currentScreen = it })
                             "todo_list" -> TaskAndHuntingScreen(viewModel, "TODO")
                             "debit_card" -> BankingItemScreen(viewModel, "DEBIT_CARD")
-                            "pin" -> BankingItemScreen(viewModel, "PIN")
                             "cheque_book" -> BankingItemScreen(viewModel, "CHEQUE_BOOK")
-                            "dps" -> BankingItemScreen(viewModel, "DPS")
                             "prize_bond" -> VaultStockScreen(viewModel, "PRIZE_BOND")
                             "pay_order" -> VaultStockScreen(viewModel, "PAY_ORDER")
                             "atm_calc" -> AtmCalculatorScreen(viewModel)
@@ -309,6 +337,7 @@ fun MainContainer(viewModel: BankingViewModel) {
                             "fd_calc" -> FdCalculatorScreen(viewModel)
                             "loan_calc" -> LoanCalculatorScreen(viewModel)
                             "dps_calc" -> DpsCalculatorScreen(viewModel)
+                            "financial_advisor" -> FinancialAdvisorScreen(viewModel)
                             else -> DashboardScreen(viewModel, onNavigate = { viewModel.currentScreen = it })
                         }
                     }
@@ -362,9 +391,7 @@ fun UniversalSearchResultsView(viewModel: BankingViewModel) {
                                 viewModel.searchQuery = ""
                                 when (res.moduleType) {
                                     "DEBIT_CARD" -> viewModel.currentScreen = "debit_card"
-                                    "PIN" -> viewModel.currentScreen = "pin"
                                     "CHEQUE_BOOK" -> viewModel.currentScreen = "cheque_book"
-                                    "DPS" -> viewModel.currentScreen = "dps"
                                     "CUSTOMER HUNTING" -> viewModel.currentScreen = "hunting"
                                     "DIGITAL FORM" -> viewModel.currentScreen = "forms"
                                 }

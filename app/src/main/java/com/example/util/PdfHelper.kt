@@ -3,14 +3,19 @@ package com.example.util
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.DashPathEffect
 import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.pdf.PdfDocument
 import androidx.core.content.FileProvider
 import com.example.data.BankingItem
+import com.example.data.AtmLoadingLog
+import java.text.NumberFormat
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
@@ -928,6 +933,521 @@ object PdfHelper {
         }
     }
 
+    private enum class IconType {
+        USER, CALENDAR, CLOCK, DOWNLOAD, UPLOAD, STACK_CASH, MONEY_BAG, PENCIL
+    }
+
+    private fun drawSquareIcon(
+        canvas: Canvas,
+        x: Float,
+        y: Float,
+        size: Float,
+        bgColor: Int,
+        iconType: IconType
+    ) {
+        // Draw rounded rectangle background
+        val bgRect = RectF(x, y, x + size, y + size)
+        val bgPaint = Paint().apply { color = bgColor; style = Paint.Style.FILL; isAntiAlias = true }
+        canvas.drawRoundRect(bgRect, 4f, 4f, bgPaint)
+
+        val iconPaint = Paint().apply {
+            color = Color.WHITE
+            style = Paint.Style.STROKE
+            strokeWidth = 1.6f
+            strokeCap = Paint.Cap.ROUND
+            strokeJoin = Paint.Join.ROUND
+            isAntiAlias = true
+        }
+        val fillPaint = Paint().apply {
+            color = Color.WHITE
+            style = Paint.Style.FILL
+            isAntiAlias = true
+        }
+
+        val cx = x + size / 2f
+        val cy = y + size / 2f
+
+        when (iconType) {
+            IconType.USER -> {
+                canvas.drawCircle(cx, cy - 3f, 3.2f, iconPaint)
+                val bodyPath = Path().apply {
+                    arcTo(RectF(cx - 5.5f, cy + 0.5f, cx + 5.5f, cy + 8f), 180f, 180f, false)
+                }
+                canvas.drawPath(bodyPath, iconPaint)
+            }
+            IconType.CALENDAR -> {
+                val calRect = RectF(cx - 5.5f, cy - 3.5f, cx + 5.5f, cy + 5.5f)
+                canvas.drawRoundRect(calRect, 1.5f, 1.5f, iconPaint)
+                canvas.drawLine(cx - 5.5f, cy - 1f, cx + 5.5f, cy - 1f, iconPaint)
+                canvas.drawCircle(cx - 2.5f, cy + 2f, 0.8f, fillPaint)
+                canvas.drawCircle(cx + 2.5f, cy + 2f, 0.8f, fillPaint)
+                canvas.drawLine(cx - 2.5f, cy - 5.5f, cx - 2.5f, cy - 3.5f, iconPaint)
+                canvas.drawLine(cx + 2.5f, cy - 5.5f, cx + 2.5f, cy - 3.5f, iconPaint)
+            }
+            IconType.CLOCK -> {
+                canvas.drawCircle(cx, cy, 5.5f, iconPaint)
+                canvas.drawLine(cx, cy, cx, cy - 3.2f, iconPaint)
+                canvas.drawLine(cx, cy, cx + 2.2f, cy, iconPaint)
+            }
+            IconType.DOWNLOAD -> {
+                canvas.drawLine(cx - 5.5f, cy + 1.5f, cx - 5.5f, cy + 4.5f, iconPaint)
+                canvas.drawLine(cx - 5.5f, cy + 4.5f, cx + 5.5f, cy + 4.5f, iconPaint)
+                canvas.drawLine(cx + 5.5f, cy + 4.5f, cx + 5.5f, cy + 1.5f, iconPaint)
+                canvas.drawLine(cx, cy - 4.5f, cx, cy + 1.5f, iconPaint)
+                val arrowHead = Path().apply {
+                    moveTo(cx - 2.8f, cy - 1f)
+                    lineTo(cx, cy + 1.5f)
+                    lineTo(cx + 2.8f, cy - 1f)
+                }
+                canvas.drawPath(arrowHead, iconPaint)
+            }
+            IconType.UPLOAD -> {
+                canvas.drawLine(cx - 5.5f, cy + 1.5f, cx - 5.5f, cy + 4.5f, iconPaint)
+                canvas.drawLine(cx - 5.5f, cy + 4.5f, cx + 5.5f, cy + 4.5f, iconPaint)
+                canvas.drawLine(cx + 5.5f, cy + 4.5f, cx + 5.5f, cy + 1.5f, iconPaint)
+                canvas.drawLine(cx, cy + 2f, cx, cy - 4.5f, iconPaint)
+                val arrowHead = Path().apply {
+                    moveTo(cx - 2.8f, cy - 2f)
+                    lineTo(cx, cy - 4.5f)
+                    lineTo(cx + 2.8f, cy - 2f)
+                }
+                canvas.drawPath(arrowHead, iconPaint)
+            }
+            IconType.STACK_CASH -> {
+                val bill1 = RectF(cx - 5.5f, cy - 4.5f, cx + 3.5f, cy + 0.5f)
+                val bill2 = RectF(cx - 3.5f, cy - 1.5f, cx + 5.5f, cy + 3.5f)
+                canvas.drawRoundRect(bill1, 1f, 1f, iconPaint)
+                canvas.drawRoundRect(bill2, 1f, 1f, iconPaint)
+                canvas.drawCircle(cx + 1f, cy + 1f, 1f, fillPaint)
+            }
+            IconType.MONEY_BAG -> {
+                val bagPath = Path().apply {
+                    moveTo(cx - 2f, cy - 4.5f)
+                    lineTo(cx + 2f, cy - 4.5f)
+                    lineTo(cx + 2.5f, cy - 2.5f)
+                    arcTo(RectF(cx - 5.5f, cy - 2.5f, cx + 5.5f, cy + 5.5f), -60f, 300f, false)
+                    close()
+                }
+                canvas.drawPath(bagPath, iconPaint)
+                val takaTextPaint = Paint().apply {
+                    color = Color.WHITE
+                    textSize = 6f
+                    typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                    textAlign = Paint.Align.CENTER
+                    isAntiAlias = true
+                }
+                canvas.drawText("৳", cx, cy + 3.2f, takaTextPaint)
+            }
+            IconType.PENCIL -> {
+                val pencilPath = Path().apply {
+                    moveTo(cx - 4.5f, cy + 3.5f)
+                    lineTo(cx - 4.5f, cy + 1f)
+                    lineTo(cx + 1.5f, cy - 5f)
+                    lineTo(cx + 4f, cy - 2.5f)
+                    lineTo(cx - 2f, cy + 3.5f)
+                    close()
+                }
+                canvas.drawPath(pencilPath, iconPaint)
+            }
+        }
+    }
+
+    /**
+     * Generates a beautifully structured ATM Replenishment PDF report matching reference standard.
+     */
+    fun generateAtmReplenishmentPdf(
+        context: Context,
+        fileName: String,
+        log: AtmLoadingLog
+    ) {
+        val document = PdfDocument()
+        val pageWidth = 595
+        val pageHeight = 842
+        val pageInfo = PdfDocument.PageInfo.Builder(pageWidth, pageHeight, 1).create()
+        val page = document.startPage(pageInfo)
+        val canvas = page.canvas
+
+        // Pure white background
+        val bgPaint = Paint().apply { color = Color.WHITE }
+        canvas.drawRect(0f, 0f, pageWidth.toFloat(), pageHeight.toFloat(), bgPaint)
+
+        // Colors matching exact brand identity
+        val darkNavy = Color.parseColor("#0B2341")
+        val accentBlue = Color.parseColor("#1D3557")
+        val borderGray = Color.parseColor("#CBD5E1")
+        val gridBorderColor = Color.parseColor("#E2E8F0")
+
+        val marginX = 35f
+        val tableW = 525f
+
+        // 1. Top Right Corner Diagonal Stripes
+        val stripeNavy = Paint().apply { color = darkNavy; strokeWidth = 3.5f; style = Paint.Style.STROKE; isAntiAlias = true }
+        val stripeAccent = Paint().apply { color = accentBlue; strokeWidth = 3.5f; style = Paint.Style.STROKE; isAntiAlias = true }
+        
+        canvas.drawLine(525f, 15f, 580f, 15f, stripeNavy)
+        canvas.drawLine(535f, 21f, 580f, 21f, stripeAccent)
+        canvas.drawLine(545f, 27f, 580f, 27f, stripeNavy)
+
+        // 2. Main Title: ATM LOAD REPORT
+        val mainTitlePaint = Paint().apply {
+            color = darkNavy
+            textSize = 24f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            textAlign = Paint.Align.CENTER
+            isAntiAlias = true
+        }
+        canvas.drawText("ATM LOAD REPORT", pageWidth / 2f, 52f, mainTitlePaint)
+
+        // Diamond rule under main title
+        val lineY = 62f
+        val rulePaint = Paint().apply { color = darkNavy; strokeWidth = 1f; isAntiAlias = true }
+        canvas.drawLine(pageWidth / 2f - 90f, lineY, pageWidth / 2f - 8f, lineY, rulePaint)
+        canvas.drawLine(pageWidth / 2f + 8f, lineY, pageWidth / 2f + 90f, lineY, rulePaint)
+
+        val diamondPath = Path().apply {
+            moveTo(pageWidth / 2f, lineY - 3.5f)
+            lineTo(pageWidth / 2f + 3.5f, lineY)
+            lineTo(pageWidth / 2f, lineY + 3.5f)
+            lineTo(pageWidth / 2f - 3.5f, lineY)
+            close()
+        }
+        val diamondPaint = Paint().apply { color = darkNavy; style = Paint.Style.FILL; isAntiAlias = true }
+        canvas.drawPath(diamondPath, diamondPaint)
+
+        // Subtitle
+        val subTitlePaint = Paint().apply {
+            color = darkNavy
+            textSize = 9.5f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            textAlign = Paint.Align.CENTER
+            letterSpacing = 0.08f
+            isAntiAlias = true
+        }
+        canvas.drawText("TOUFIQ'S SMART BANKING SOLUTION", pageWidth / 2f, 78f, subTitlePaint)
+
+        var currentY = 94f
+
+        // 3. Pill Badge
+        val pillHeight = 26f
+        val pillRect = RectF(65f, currentY, pageWidth - 65f, currentY + pillHeight)
+        val pillBgPaint = Paint().apply { color = darkNavy; style = Paint.Style.FILL; isAntiAlias = true }
+        canvas.drawRoundRect(pillRect, 6f, 6f, pillBgPaint)
+
+        val pillTextPaint = Paint().apply {
+            color = Color.WHITE
+            textSize = 10.5f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            textAlign = Paint.Align.CENTER
+            letterSpacing = 0.04f
+            isAntiAlias = true
+        }
+        val badgeText = "ATM REPLENISHMENT SLIP OF ${log.atmName.uppercase()}"
+        canvas.drawText(badgeText, pageWidth / 2f, currentY + 17f, pillTextPaint)
+
+        currentY += 38f
+
+        // 4. Load Information Card
+        val infoCardHeight = 84f
+        val infoCardRect = RectF(marginX, currentY, marginX + tableW, currentY + infoCardHeight)
+        val cardBgPaint = Paint().apply { color = Color.WHITE; style = Paint.Style.FILL }
+        val cardBorderPaint = Paint().apply { color = darkNavy; style = Paint.Style.STROKE; strokeWidth = 1f; isAntiAlias = true }
+
+        canvas.drawRoundRect(infoCardRect, 8f, 8f, cardBgPaint)
+        canvas.drawRoundRect(infoCardRect, 8f, 8f, cardBorderPaint)
+
+        val iconBoxSize = 22f
+        val r1Y = currentY + 10f
+        val r2Y = currentY + 35f
+        val r3Y = currentY + 60f
+
+        val lblPaint = Paint().apply { color = darkNavy; textSize = 10f; typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL); isAntiAlias = true }
+        val valPaint = Paint().apply { color = darkNavy; textSize = 10.5f; typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD); isAntiAlias = true }
+
+        // Row 1: Load By
+        drawSquareIcon(canvas, marginX + 14f, r1Y, iconBoxSize, darkNavy, IconType.USER)
+        canvas.drawText("Load By", marginX + 48f, r1Y + 15f, lblPaint)
+        canvas.drawText(":", marginX + 110f, r1Y + 15f, lblPaint)
+        canvas.drawText(log.operatorName.uppercase(), marginX + 122f, r1Y + 15f, valPaint)
+
+        // Row 2: Date
+        drawSquareIcon(canvas, marginX + 14f, r2Y, iconBoxSize, darkNavy, IconType.CALENDAR)
+        canvas.drawText("Date", marginX + 48f, r2Y + 15f, lblPaint)
+        canvas.drawText(":", marginX + 110f, r2Y + 15f, lblPaint)
+        canvas.drawText(log.dateStr, marginX + 122f, r2Y + 15f, valPaint)
+
+        // Row 3: Time
+        drawSquareIcon(canvas, marginX + 14f, r3Y, iconBoxSize, darkNavy, IconType.CLOCK)
+        canvas.drawText("Time", marginX + 48f, r3Y + 15f, lblPaint)
+        canvas.drawText(":", marginX + 110f, r3Y + 15f, lblPaint)
+        val timeDisplay = if (log.timeStr.isNotBlank()) log.timeStr else SimpleDateFormat("hh:mm:ss a", Locale.US).format(Date())
+        canvas.drawText(timeDisplay, marginX + 122f, r3Y + 15f, valPaint)
+
+        currentY += infoCardHeight + 22f
+
+        val formatter = NumberFormat.getNumberInstance(Locale.US)
+
+        // 5. Section 1: CASSETTE WISE RECEIVED (REMAINING)
+        val secHeaderHeight = 22f
+        drawSquareIcon(canvas, marginX, currentY, secHeaderHeight, darkNavy, IconType.DOWNLOAD)
+
+        val secTitlePaint = Paint().apply {
+            color = darkNavy
+            textSize = 11f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            letterSpacing = 0.02f
+            isAntiAlias = true
+        }
+        val sec1Title = "CASSETTE WISE RECEIVED (REMAINING)"
+        canvas.drawText(sec1Title, marginX + 30f, currentY + 15f, secTitlePaint)
+
+        val titleW1 = secTitlePaint.measureText(sec1Title)
+        canvas.drawLine(marginX + 38f + titleW1, currentY + 11f, marginX + tableW, currentY + 11f, rulePaint)
+
+        currentY += secHeaderHeight + 10f
+
+        // Table 1 Header
+        val thHeight = 22f
+        val tdHeight = 22f
+        val tableHeaderRect1 = RectF(marginX, currentY, marginX + tableW, currentY + thHeight)
+        val thBgPaint = Paint().apply { color = darkNavy; style = Paint.Style.FILL; isAntiAlias = true }
+        canvas.drawRoundRect(tableHeaderRect1, 3f, 3f, thBgPaint)
+
+        val thLeftPaint = Paint().apply { color = Color.WHITE; textSize = 9.5f; typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD); isAntiAlias = true }
+        val thCenterPaint = Paint().apply { color = Color.WHITE; textSize = 9.5f; typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD); textAlign = Paint.Align.CENTER; isAntiAlias = true }
+
+        canvas.drawText("CASSETTE", marginX + 30f, currentY + 15f, thLeftPaint)
+        canvas.drawText("DENOMINATION", marginX + 260f, currentY + 15f, thCenterPaint)
+        canvas.drawText("NOTES RECEIVED", marginX + 440f, currentY + 15f, thCenterPaint)
+
+        currentY += thHeight
+
+        val recData = listOf(
+            Triple("Cassette 1", "1000 Taka", "${log.c1Remaining} notes"),
+            Triple("Cassette 2", "1000 Taka", "${log.c2Remaining} notes"),
+            Triple("Cassette 3", "500 Taka", "${log.c3Remaining} notes"),
+            Triple("Cassette 4", "500 Taka", "${log.c4Remaining} notes")
+        )
+
+        val tdLeft = Paint().apply { color = darkNavy; textSize = 9.5f; typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL); isAntiAlias = true }
+        val tdCenter = Paint().apply { color = darkNavy; textSize = 9.5f; typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL); textAlign = Paint.Align.CENTER; isAntiAlias = true }
+        val gridStrokePaint = Paint().apply { color = gridBorderColor; style = Paint.Style.STROKE; strokeWidth = 1f; isAntiAlias = true }
+
+        recData.forEachIndexed { idx, (cas, den, notes) ->
+            val rRect = RectF(marginX, currentY, marginX + tableW, currentY + tdHeight)
+            val rBg = if (idx % 2 == 0) Color.WHITE else Color.parseColor("#F8FAFC")
+            canvas.drawRect(rRect, Paint().apply { color = rBg })
+            canvas.drawRect(rRect, gridStrokePaint)
+
+            canvas.drawText(cas, marginX + 30f, currentY + 15f, tdLeft)
+            canvas.drawText(den, marginX + 260f, currentY + 15f, tdCenter)
+            canvas.drawText(notes, marginX + 440f, currentY + 15f, tdCenter)
+
+            currentY += tdHeight
+        }
+
+        currentY += 10f
+
+        // Section 1 Summary Cards (3 Cards)
+        val cardWidth = (tableW - 16f) / 3f
+        val cardHeight = 44f
+
+        val tot1000Rec = log.c1Remaining + log.c2Remaining
+        val tot500Rec = log.c3Remaining + log.c4Remaining
+        val totRecAmount = (tot1000Rec * 1000L) + (tot500Rec * 500L)
+
+        val summary1 = listOf(
+            Triple(IconType.STACK_CASH, "Total Received 1000 Notes", "${formatter.format(tot1000Rec)} Pcs"),
+            Triple(IconType.STACK_CASH, "Total Received 500 Notes", "${formatter.format(tot500Rec)} Pcs"),
+            Triple(IconType.MONEY_BAG, "Total Received Amount", "BDT ${formatter.format(totRecAmount)}")
+        )
+
+        summary1.forEachIndexed { i, (icon, label, value) ->
+            val cX = marginX + i * (cardWidth + 8f)
+            val cRect = RectF(cX, currentY, cX + cardWidth, currentY + cardHeight)
+            canvas.drawRoundRect(cRect, 6f, 6f, cardBgPaint)
+            canvas.drawRoundRect(cRect, 6f, 6f, cardBorderPaint)
+
+            drawSquareIcon(canvas, cX + 8f, currentY + 10f, 24f, darkNavy, icon)
+
+            val cLblPaint = Paint().apply { color = darkNavy; textSize = 7.5f; typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL); isAntiAlias = true }
+            val cValPaint = Paint().apply { color = darkNavy; textSize = 11f; typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD); isAntiAlias = true }
+
+            canvas.drawText(label, cX + 38f, currentY + 18f, cLblPaint)
+            canvas.drawText(value, cX + 38f, currentY + 34f, cValPaint)
+        }
+
+        currentY += cardHeight + 22f
+
+        // 6. Section 2: CASSETTE WISE LOADED (REPLENISHMENT)
+        drawSquareIcon(canvas, marginX, currentY, secHeaderHeight, darkNavy, IconType.UPLOAD)
+
+        val sec2Title = "CASSETTE WISE LOADED (REPLENISHMENT)"
+        canvas.drawText(sec2Title, marginX + 30f, currentY + 15f, secTitlePaint)
+
+        val titleW2 = secTitlePaint.measureText(sec2Title)
+        canvas.drawLine(marginX + 38f + titleW2, currentY + 11f, marginX + tableW, currentY + 11f, rulePaint)
+
+        currentY += secHeaderHeight + 10f
+
+        // Table 2 Header
+        val tableHeaderRect2 = RectF(marginX, currentY, marginX + tableW, currentY + thHeight)
+        canvas.drawRoundRect(tableHeaderRect2, 3f, 3f, thBgPaint)
+
+        canvas.drawText("CASSETTE", marginX + 30f, currentY + 15f, thLeftPaint)
+        canvas.drawText("DENOMINATION", marginX + 260f, currentY + 15f, thCenterPaint)
+        canvas.drawText("NOTES LOADED", marginX + 440f, currentY + 15f, thCenterPaint)
+
+        currentY += thHeight
+
+        val loadData = listOf(
+            Triple("Cassette 1", "1000 Taka", "${log.c1Loading} notes"),
+            Triple("Cassette 2", "1000 Taka", "${log.c2Loading} notes"),
+            Triple("Cassette 3", "500 Taka", "${log.c3Loading} notes"),
+            Triple("Cassette 4", "500 Taka", "${log.c4Loading} notes")
+        )
+
+        loadData.forEachIndexed { idx, (cas, den, notes) ->
+            val rRect = RectF(marginX, currentY, marginX + tableW, currentY + tdHeight)
+            val rBg = if (idx % 2 == 0) Color.WHITE else Color.parseColor("#F8FAFC")
+            canvas.drawRect(rRect, Paint().apply { color = rBg })
+            canvas.drawRect(rRect, gridStrokePaint)
+
+            canvas.drawText(cas, marginX + 30f, currentY + 15f, tdLeft)
+            canvas.drawText(den, marginX + 260f, currentY + 15f, tdCenter)
+            canvas.drawText(notes, marginX + 440f, currentY + 15f, tdCenter)
+
+            currentY += tdHeight
+        }
+
+        currentY += 10f
+
+        // Section 2 Summary Cards (3 Cards)
+        val tot1000Load = log.c1Loading + log.c2Loading
+        val tot500Load = log.c3Loading + log.c4Loading
+        val totLoadAmount = log.loadingAmount
+
+        val summary2 = listOf(
+            Triple(IconType.STACK_CASH, "Total Loaded 1000 Notes", "${formatter.format(tot1000Load)} Pcs"),
+            Triple(IconType.STACK_CASH, "Total Loaded 500 Notes", "${formatter.format(tot500Load)} Pcs"),
+            Triple(IconType.MONEY_BAG, "TOTAL LOAD AMOUNT", "BDT ${formatter.format(totLoadAmount)}")
+        )
+
+        summary2.forEachIndexed { i, (icon, label, value) ->
+            val cX = marginX + i * (cardWidth + 8f)
+            val cRect = RectF(cX, currentY, cX + cardWidth, currentY + cardHeight)
+            canvas.drawRoundRect(cRect, 6f, 6f, cardBgPaint)
+            canvas.drawRoundRect(cRect, 6f, 6f, cardBorderPaint)
+
+            drawSquareIcon(canvas, cX + 8f, currentY + 10f, 24f, darkNavy, icon)
+
+            val cLblPaint = Paint().apply { color = darkNavy; textSize = 7.5f; typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL); isAntiAlias = true }
+            val cValPaint = Paint().apply { color = darkNavy; textSize = 11f; typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD); isAntiAlias = true }
+
+            canvas.drawText(label, cX + 38f, currentY + 18f, cLblPaint)
+            canvas.drawText(value, cX + 38f, currentY + 34f, cValPaint)
+        }
+
+        currentY += cardHeight + 16f
+
+        // 7. Remarks Section
+        val remBoxHeight = 32f
+        val remRect = RectF(marginX, currentY, marginX + tableW, currentY + remBoxHeight)
+        canvas.drawRoundRect(remRect, 6f, 6f, cardBgPaint)
+        canvas.drawRoundRect(remRect, 6f, 6f, cardBorderPaint)
+
+        drawSquareIcon(canvas, marginX + 8f, currentY + 5f, 22f, darkNavy, IconType.PENCIL)
+
+        val remTextPaint = Paint().apply { color = darkNavy; textSize = 10f; typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD); isAntiAlias = true }
+        val remarkStr = if (log.remarks.isNotBlank()) log.remarks.uppercase() else "N/A"
+        canvas.drawText("Remarks: $remarkStr", marginX + 38f, currentY + 20f, remTextPaint)
+
+        // 8. Loader Sign Section (Bottom Right)
+        val sigY = 742f
+
+        // Dotted line for Loader Signature
+        val dottedPaint = Paint().apply {
+            color = darkNavy
+            strokeWidth = 1f
+            style = Paint.Style.STROKE
+            pathEffect = DashPathEffect(floatArrayOf(2f, 2f), 0f)
+            isAntiAlias = true
+        }
+        canvas.drawLine(pageWidth - 200f, sigY, pageWidth - 40f, sigY, dottedPaint)
+
+        val sigTextPaint = Paint().apply {
+            color = darkNavy
+            textSize = 10f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            textAlign = Paint.Align.CENTER
+            isAntiAlias = true
+        }
+        canvas.drawText("Loader Sign", pageWidth - 120f, sigY + 16f, sigTextPaint)
+
+        // 9. Footer Bar
+        val footerY = 812f
+        
+        // Footer line with center text and diamonds
+        val ftLineY = footerY - 12f
+        canvas.drawLine(35f, ftLineY, pageWidth - 35f, ftLineY, rulePaint)
+
+        // Small diamonds on the footer line
+        val ftDiamondLeft = Path().apply {
+            moveTo(35f, ftLineY - 2.5f)
+            lineTo(37.5f, ftLineY)
+            lineTo(35f, ftLineY + 2.5f)
+            lineTo(32.5f, ftLineY)
+            close()
+        }
+        val ftDiamondRight = Path().apply {
+            moveTo(pageWidth - 35f, ftLineY - 2.5f)
+            lineTo(pageWidth - 32.5f, ftLineY)
+            lineTo(pageWidth - 35f, ftLineY + 2.5f)
+            lineTo(pageWidth - 37.5f, ftLineY)
+            close()
+        }
+        canvas.drawPath(ftDiamondLeft, diamondPaint)
+        canvas.drawPath(ftDiamondRight, diamondPaint)
+
+        val footerTextPaint = Paint().apply {
+            color = darkNavy
+            textSize = 8.5f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            textAlign = Paint.Align.CENTER
+            letterSpacing = 0.05f
+            isAntiAlias = true
+        }
+        canvas.drawText("THIS REPORT IS GENERATED BY TOUFIQ'S SMART BANKING SOLUTION APP", pageWidth / 2f, footerY, footerTextPaint)
+
+        // Bottom right corner stripes
+        canvas.drawLine(525f, 826f, 580f, 826f, stripeNavy)
+        canvas.drawLine(535f, 831f, 580f, 831f, stripeAccent)
+        canvas.drawLine(545f, 836f, 580f, 836f, stripeNavy)
+
+        document.finishPage(page)
+
+        // Save and Share
+        try {
+            val dir = File(context.cacheDir, "pdf_reports")
+            if (!dir.exists()) dir.mkdirs()
+            val file = File(dir, fileName)
+            FileOutputStream(file).use { out ->
+                document.writeTo(out)
+            }
+            document.close()
+
+            val contentUri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "application/pdf"
+                putExtra(Intent.EXTRA_STREAM, contentUri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(Intent.createChooser(shareIntent, "Share ATM Load Report"))
+        } catch (e: Exception) {
+            e.printStackTrace()
+            document.close()
+        }
+    }
+
     /**
      * Legacy PDF share helper for unstructured balance reports.
      */
@@ -1340,5 +1860,333 @@ object PdfHelper {
         }
 
         return Triple(fileName, headers, rows)
+    }
+
+    data class FinancialAdvisorInput(
+        val name: String = "",
+        val age: String = "",
+        val employment: String = "Service",
+        val salary: Double = 0.0,
+        val otherIncome: Double = 0.0,
+        val rentExpense: Double = 0.0,
+        val foodExpense: Double = 0.0,
+        val electricityExpense: Double = 0.0,
+        val transportExpense: Double = 0.0,
+        val otherExpense: Double = 0.0,
+        val totalIncome: Double = 0.0,
+        val totalExpense: Double = 0.0,
+        val monthlySavings: Double = 0.0,
+        val cashInHand: Double = 0.0,
+        val hasLoan: Boolean = false,
+        val loanAmount: Double = 0.0,
+        val loanOutstanding: Double = 0.0,
+        val loanEmi: Double = 0.0,
+        val loanFinishDate: String = "",
+        val hasRunningSavings: Boolean = false,
+        val savingsCategory: String = "DPS",
+        val savingsAmount: Double = 0.0,
+        val savingsTenure: Double = 0.0,
+        val savingsInterestRate: Double = 0.0,
+        val fdrPayoutType: String = "Interest Reinvested (1 Year)",
+        val savingsStartDate: String = "",
+        val savingsFinishDate: String = "",
+        // Legacy compatibility defaults
+        val businessIncome: Double = 0.0,
+        val monthlyExpenses: Double = 0.0,
+        val currentDps: Double = 0.0,
+        val currentFdr: Double = 0.0,
+        val currentLoan: Double = 0.0,
+        val loanInterestRate: Double = 0.0,
+        val loanRemainingYears: Double = 0.0,
+        val availableLoanCash: Double = 0.0,
+        val creditCardLimit: Double = 0.0,
+        val targetWealth: Double = 0.0,
+        val targetYears: Int = 10,
+        val riskProfile: String = "Moderate"
+    )
+
+    fun generateFinancialAdvisorPdf(
+        context: Context,
+        fileName: String,
+        input: FinancialAdvisorInput,
+        reportText: String
+    ) {
+        val pdfDocument = PdfDocument()
+        val pageWidth = 595
+        val pageHeight = 842
+        val marginX = 35f
+        val contentW = 525f
+
+        var currentPageNumber = 1
+        var pageInfo = PdfDocument.PageInfo.Builder(pageWidth, pageHeight, currentPageNumber).create()
+        var page = pdfDocument.startPage(pageInfo)
+        var canvas = page.canvas
+
+        val bgPaint = Paint().apply { color = Color.WHITE }
+        val darkNavy = Color.parseColor("#0B2341")
+        val goldPrimary = Color.parseColor("#D4AF37")
+        val slateDark = Color.parseColor("#1E293B")
+        val cardBgColor = Color.parseColor("#F8FAFC")
+
+        val titlePaint = Paint().apply {
+            color = darkNavy
+            textSize = 18f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            textAlign = Paint.Align.CENTER
+            isAntiAlias = true
+        }
+
+        val subTitlePaint = Paint().apply {
+            color = goldPrimary
+            textSize = 10f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            textAlign = Paint.Align.CENTER
+            letterSpacing = 0.08f
+            isAntiAlias = true
+        }
+
+        val headerLabelPaint = Paint().apply {
+            color = darkNavy
+            textSize = 10f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            isAntiAlias = true
+        }
+
+        val bodyTextPaint = Paint().apply {
+            color = slateDark
+            textSize = 9.5f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+            isAntiAlias = true
+        }
+
+        val bodyBoldPaint = Paint().apply {
+            color = darkNavy
+            textSize = 9.5f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            isAntiAlias = true
+        }
+
+        val footerPaint = Paint().apply {
+            color = Color.parseColor("#64748B")
+            textSize = 8f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+            isAntiAlias = true
+        }
+
+        val officerGoldPaint = Paint().apply {
+            color = goldPrimary
+            textSize = 9f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            textAlign = Paint.Align.RIGHT
+            isAntiAlias = true
+        }
+
+        val officerBoldPaint = Paint().apply {
+            color = darkNavy
+            textSize = 8.5f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            textAlign = Paint.Align.RIGHT
+            isAntiAlias = true
+        }
+
+        val officerNormalPaint = Paint().apply {
+            color = slateDark
+            textSize = 8f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+            textAlign = Paint.Align.RIGHT
+            isAntiAlias = true
+        }
+
+        val wmPaint = Paint().apply {
+            color = Color.parseColor("#12000000")
+            textSize = 30f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            textAlign = Paint.Align.CENTER
+            isAntiAlias = true
+        }
+
+        fun drawWatermarkOnCanvas(c: Canvas) {
+            c.save()
+            c.rotate(-25f, pageWidth / 2f, pageHeight / 2f)
+            c.drawText("For FD and DPS", pageWidth / 2f, pageHeight / 2f - 20f, wmPaint)
+            c.drawText("WhatsApp on : 01517836078", pageWidth / 2f, pageHeight / 2f + 20f, wmPaint)
+            c.restore()
+        }
+
+        fun drawFooterOnCanvas(c: Canvas, isLastPage: Boolean) {
+            drawWatermarkOnCanvas(c)
+            val footerY = (pageHeight - 15).toFloat()
+            val dateStr = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale.getDefault()).format(Date())
+            c.drawText("Generated: $dateStr", marginX, footerY, footerPaint)
+
+            val footerMid = "DESIGNED BY TOUFIQ"
+            val footerMidWidth = footerPaint.measureText(footerMid)
+            c.drawText(footerMid, (pageWidth - footerMidWidth) / 2f, footerY, footerPaint)
+
+            getFacebookQrBitmap()?.let { qrBmp ->
+                val qrSize = 36f
+                val qrX = (pageWidth / 2f) + (footerMidWidth / 2f) + 10f
+                val qrY = footerY - 26f
+                c.drawBitmap(qrBmp, null, RectF(qrX, qrY, qrX + qrSize, qrY + qrSize), null)
+            }
+
+            val pageStr = "Page $currentPageNumber"
+            val pageStrWidth = footerPaint.measureText(pageStr)
+            c.drawText(pageStr, pageWidth - marginX - pageStrWidth, footerY, footerPaint)
+
+            if (isLastPage) {
+                val rightX = (pageWidth - 35).toFloat()
+                var blockY = (pageHeight - 75).toFloat()
+
+                c.drawText("Md Toufiqur Rahman (Toufiq)", rightX, blockY, officerGoldPaint)
+                blockY += 10f
+                c.drawText("Trainee Assistant Officer", rightX, blockY, officerNormalPaint)
+                blockY += 10f
+                c.drawText("Shimanto Bank PLC.", rightX, blockY, officerBoldPaint)
+                blockY += 10f
+                c.drawText("Chirirbandar Branch, Dinajpur.", rightX, blockY, officerNormalPaint)
+                blockY += 10f
+                c.drawText("WhatsApp: 01517836078", rightX, blockY, officerBoldPaint)
+            }
+        }
+
+        fun startNewPage() {
+            drawFooterOnCanvas(canvas, false)
+            pdfDocument.finishPage(page)
+            currentPageNumber++
+            pageInfo = PdfDocument.PageInfo.Builder(pageWidth, pageHeight, currentPageNumber).create()
+            page = pdfDocument.startPage(pageInfo)
+            canvas = page.canvas
+            canvas.drawRect(0f, 0f, pageWidth.toFloat(), pageHeight.toFloat(), bgPaint)
+        }
+
+        canvas.drawRect(0f, 0f, pageWidth.toFloat(), pageHeight.toFloat(), bgPaint)
+
+        // Title Block
+        canvas.drawText("TOUFIQ AI FINANCIAL PLANNER", pageWidth / 2f, 42f, titlePaint)
+        canvas.drawText("SHIMANTO BANK PLC. | WEALTH MANAGEMENT ADVISORY", pageWidth / 2f, 58f, subTitlePaint)
+
+        var currentY = 74f
+
+        // Customer Summary Header Card
+        val cardHeight = 65f
+        val cardRect = RectF(marginX, currentY, marginX + contentW, currentY + cardHeight)
+        val cardBgPaint = Paint().apply { color = cardBgColor; style = Paint.Style.FILL }
+        val cardBorderPaint = Paint().apply { color = darkNavy; style = Paint.Style.STROKE; strokeWidth = 1f; isAntiAlias = true }
+        canvas.drawRoundRect(cardRect, 6f, 6f, cardBgPaint)
+        canvas.drawRoundRect(cardRect, 6f, 6f, cardBorderPaint)
+
+        val fmt = NumberFormat.getNumberInstance(Locale.US)
+        val nameStr = if (input.name.isNotBlank()) input.name else "Valued Client"
+        val incVal = if (input.totalIncome > 0) input.totalIncome else (input.salary + input.otherIncome)
+        val expVal = if (input.totalExpense > 0) input.totalExpense else input.monthlyExpenses
+        val savVal = if (input.monthlySavings > 0) input.monthlySavings else (incVal - expVal).coerceAtLeast(0.0)
+
+        canvas.drawText("Client: $nameStr (Age: ${input.age}, ${input.employment})", marginX + 12f, currentY + 18f, headerLabelPaint)
+        canvas.drawText("Income: BDT ${fmt.format(incVal)} | Expense: BDT ${fmt.format(expVal)} | Net Savings: BDT ${fmt.format(savVal)}", marginX + 12f, currentY + 34f, bodyTextPaint)
+        canvas.drawText("Cash in Hand: BDT ${fmt.format(input.cashInHand)} | Loan: ${if (input.hasLoan) "BDT ${fmt.format(input.loanAmount)}" else "No"} | DPS/FDR: ${if (input.hasRunningSavings) "${input.savingsCategory} BDT ${fmt.format(input.savingsAmount)}" else "No"}", marginX + 12f, currentY + 50f, bodyBoldPaint)
+
+        currentY += cardHeight + 15f
+
+        val lines = reportText.split("\n")
+        val lineSpacing = 14f
+
+        for (line in lines) {
+            if (currentY > pageHeight - 110f) {
+                startNewPage()
+                currentY = 45f
+            }
+
+            val trimmed = line.trim()
+            if (trimmed.isEmpty()) {
+                currentY += 6f
+                continue
+            }
+
+            if (trimmed.startsWith("---") || trimmed.startsWith("===")) {
+                val rulePaint = Paint().apply { color = goldPrimary; strokeWidth = 1f }
+                canvas.drawLine(marginX, currentY, marginX + contentW, currentY, rulePaint)
+                currentY += 10f
+                continue
+            }
+
+            val isSectionHeader = trimmed.uppercase() == trimmed && trimmed.length < 50 && !trimmed.contains("BDT") && !trimmed.contains(":")
+            val isStep = trimmed.startsWith("Step") || trimmed.startsWith("Strategy") || trimmed.contains("FINANCIAL SUMMARY") || trimmed.contains("RECOMMENDED STRATEGY") || trimmed.contains("DETAILED INVESTMENT ROADMAP") || trimmed.contains("SHOW TIMELINE") || trimmed.contains("SHOW FINAL RESULT")
+
+            val paintToUse = when {
+                isSectionHeader || isStep -> Paint().apply {
+                    color = darkNavy
+                    textSize = 10f
+                    typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                    isAntiAlias = true
+                }
+                else -> bodyTextPaint
+            }
+
+            var start = 0
+            while (start < trimmed.length) {
+                val count = paintToUse.breakText(trimmed, start, trimmed.length, true, contentW, null)
+                val sub = trimmed.substring(start, start + count)
+                canvas.drawText(sub, marginX, currentY, paintToUse)
+                currentY += lineSpacing
+                start += count
+
+                if (currentY > pageHeight - 110f) {
+                    startNewPage()
+                    currentY = 45f
+                }
+            }
+        }
+
+        drawFooterOnCanvas(canvas, true)
+        pdfDocument.finishPage(page)
+
+        try {
+            val dir = File(context.cacheDir, "pdf_reports")
+            if (!dir.exists()) dir.mkdirs()
+            val file = File(dir, fileName)
+            FileOutputStream(file).use { out ->
+                pdfDocument.writeTo(out)
+            }
+            pdfDocument.close()
+
+            val contentUri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "application/pdf"
+                putExtra(Intent.EXTRA_STREAM, contentUri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(Intent.createChooser(shareIntent, "Share Financial Advisor Report"))
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun getProcessedSignatureBitmap(context: Context): Bitmap? {
+        try {
+            val raw = BitmapFactory.decodeResource(context.resources, com.example.R.drawable.signature_toufiq) ?: return null
+            val mutable = raw.copy(Bitmap.Config.ARGB_8888, true)
+            val width = mutable.width
+            val height = mutable.height
+            val pixels = IntArray(width * height)
+            mutable.getPixels(pixels, 0, width, 0, 0, width, height)
+            for (i in pixels.indices) {
+                val color = pixels[i]
+                val r = (color shr 16) and 0xFF
+                val g = (color shr 8) and 0xFF
+                val b = color and 0xFF
+                val brightness = (r * 0.299 + g * 0.587 + b * 0.114).toInt()
+                if (brightness > 175) {
+                    pixels[i] = 0x00FFFFFF // Transparent background
+                } else {
+                    // Dark sharp ink
+                    pixels[i] = (0xFF shl 24) or (15 and 0xFF shl 16) or (25 and 0xFF shl 8) or (45 and 0xFF)
+                }
+            }
+            mutable.setPixels(pixels, 0, width, 0, 0, width, height)
+            return mutable
+        } catch (e: Exception) {
+            return null
+        }
     }
 }

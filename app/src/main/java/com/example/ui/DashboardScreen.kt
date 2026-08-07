@@ -200,23 +200,11 @@ fun DashboardScreen(
                     val debit90Days = debitActive.count { countDays(it.receivedDate) >= 90 }
                     val debitDeliveredThisMonth = items.filter { it.type == "DEBIT_CARD" }.count { isDeliveredThisMonth(it) }
 
-                    // CARD PINs
-                    val pinActive = items.filter { it.type == "PIN" && !it.isDelivered && !it.isDestroyed }
-                    val pin30Days = pinActive.count { countDays(it.receivedDate) in 30..89 }
-                    val pin90Days = pinActive.count { countDays(it.receivedDate) >= 90 }
-                    val pinDeliveredThisMonth = items.filter { it.type == "PIN" }.count { isDeliveredThisMonth(it) }
-
                     // CHEQUE BOOKS
                     val chequeActive = items.filter { it.type == "CHEQUE_BOOK" && !it.isDelivered && !it.isDestroyed }
                     val cheque30Days = chequeActive.count { countDays(it.receivedDate) in 30..89 }
                     val cheque90Days = chequeActive.count { countDays(it.receivedDate) >= 90 }
                     val chequeDeliveredThisMonth = items.filter { it.type == "CHEQUE_BOOK" }.count { isDeliveredThisMonth(it) }
-
-                    // DPS SLIPS
-                    val dpsActive = items.filter { it.type == "DPS" && !it.isDelivered && !it.isDestroyed }
-                    val dps30Days = dpsActive.count { countDays(it.receivedDate) in 30..89 }
-                    val dps90Days = dpsActive.count { countDays(it.receivedDate) >= 90 }
-                    val dpsDeliveredThisMonth = items.filter { it.type == "DPS" }.count { isDeliveredThisMonth(it) }
 
                     val fullReportText = buildString {
                         appendLine("========================================")
@@ -235,25 +223,13 @@ fun DashboardScreen(
                         appendLine("   • 90 Days Completed (≥ 90 Days): $debit90Days")
                         appendLine("   • Delivered This Month: $debitDeliveredThisMonth")
                         appendLine()
-                        appendLine("2. CARD PINs")
-                        appendLine("   • Active PINs Total: ${pinActive.size}")
-                        appendLine("   • 30 Days Completed (30-89 Days): $pin30Days")
-                        appendLine("   • 90 Days Completed (≥ 90 Days): $pin90Days")
-                        appendLine("   • Delivered This Month: $pinDeliveredThisMonth")
-                        appendLine()
-                        appendLine("3. CHEQUE BOOKS")
+                        appendLine("2. CHEQUE BOOKS")
                         appendLine("   • Active Cheque Books Total: ${chequeActive.size}")
                         appendLine("   • 30 Days Completed (30-89 Days): $cheque30Days")
                         appendLine("   • 90 Days Completed (≥ 90 Days): $cheque90Days")
                         appendLine("   • Delivered This Month: $chequeDeliveredThisMonth")
                         appendLine()
-                        appendLine("4. DPS SLIPS")
-                        appendLine("   • Active DPS Slips Total: ${dpsActive.size}")
-                        appendLine("   • 30 Days Completed (30-89 Days): $dps30Days")
-                        appendLine("   • 90 Days Completed (≥ 90 Days): $dps90Days")
-                        appendLine("   • Delivered This Month: $dpsDeliveredThisMonth")
-                        appendLine()
-                        appendLine("5. VAULT STOCK")
+                        appendLine("3. VAULT STOCK")
                         appendLine("   • Active Prize Bonds Quantity: $prizeBondVal Pcs")
                         appendLine("   • Active Pay Orders Quantity: $payOrderVal Pcs")
                         appendLine()
@@ -288,7 +264,7 @@ fun DashboardScreen(
         ) {
             item {
                 StatCard(
-                    title = "DEBIT CARD & PIN",
+                    title = "Debit Cards",
                     value = pendingDebit.toString(),
                     icon = Icons.Default.CreditCard,
                     iconColor = GoldPrimary,
@@ -302,15 +278,6 @@ fun DashboardScreen(
                     icon = Icons.Default.Book,
                     iconColor = GreenAccent,
                     onClick = { onNavigate("cheque_book") }
-                )
-            }
-            item {
-                StatCard(
-                    title = "DPS SLIP",
-                    value = pendingDps.toString(),
-                    icon = Icons.Default.FolderZip,
-                    iconColor = GoldLight,
-                    onClick = { onNavigate("dps") }
                 )
             }
             item {
@@ -356,6 +323,15 @@ fun DashboardScreen(
                     icon = Icons.Default.Calculate,
                     iconColor = GoldLight,
                     onClick = { onNavigate("dps_calc") }
+                )
+            }
+            item {
+                StatCard(
+                    title = "FINANCIAL ADVISOR",
+                    value = "Financial Advisor",
+                    icon = Icons.Default.Psychology,
+                    iconColor = GoldPrimary,
+                    onClick = { onNavigate("financial_advisor") }
                 )
             }
         }

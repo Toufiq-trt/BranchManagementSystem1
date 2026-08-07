@@ -28,6 +28,7 @@ fun SettingsScreen(
     modifier: Modifier = Modifier
 ) {
     val scope = rememberCoroutineScope()
+    val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
     var isSyncingSheets by remember { mutableStateOf(false) }
     var isSyncingExcel by remember { mutableStateOf(false) }
     
@@ -79,23 +80,19 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
-                            Text("Google Sheets Sync", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                            Text("Google Sheets Live Sync", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                             Text("Active spreadsheet: Toufiq_Ledger_2026", fontSize = 11.sp, color = Color.Gray)
                         }
                         IconButton(
                             onClick = {
-                                scope.launch {
-                                    isSyncingSheets = true
-                                    delay(2000)
-                                    isSyncingSheets = false
-                                    userMessage = "Google Sheets synchronized successfully!"
-                                }
+                                viewModel.syncExistingDataToExcelInBackground()
+                                userMessage = "Syncing all local items to Google Sheets..."
                             }
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Sync,
                                 contentDescription = "Sync Sheets",
-                                tint = if (isSyncingSheets) GoldPrimary else MaterialTheme.colorScheme.onSurface,
+                                tint = GoldPrimary,
                                 modifier = Modifier.rotate(if (isSyncingSheets) rotation else 0f)
                             )
                         }
@@ -103,32 +100,92 @@ fun SettingsScreen(
 
                     HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
 
-                    // Excel sheet row
+                    // Apps Script Web App Configuration
+                    var savedAppsScriptUrl by remember { mutableStateOf(viewModel.getSavedAppsScriptUrl()) }
+                    var showScriptCodeDialog by remember { mutableStateOf(false) }
+
+                    Text("Google Apps Script Web App URL (For Instant Sheet Delivery Write-Back)", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = GoldPrimary)
+                    OutlinedTextField(
+                        value = savedAppsScriptUrl,
+                        onValueChange = {
+                            savedAppsScriptUrl = it
+                            viewModel.saveAppsScriptUrl(it)
+                        },
+                        placeholder = { Text("https://script.google.com/macros/s/.../exec", fontSize = 11.sp) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp)
+                    )
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column {
-                            Text("Microsoft Excel Online Sync", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                            Text("Sync to SharePoint: /Branches/Ops", fontSize = 11.sp, color = Color.Gray)
-                        }
-                        IconButton(
+                        Button(
                             onClick = {
-                                scope.launch {
-                                    isSyncingExcel = true
-                                    delay(2000)
-                                    isSyncingExcel = false
-                                    userMessage = "Microsoft Excel Online ledger updated!"
-                                }
-                            }
+                                viewModel.syncExistingDataToExcelInBackground()
+                                userMessage = "Pushing all delivered items to Google Sheets now!"
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = SlateDark),
+                            shape = RoundedCornerShape(8.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.CloudSync,
-                                contentDescription = "Sync Excel",
-                                tint = if (isSyncingExcel) GoldPrimary else MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.rotate(if (isSyncingExcel) rotation else 0f)
-                            )
+                            Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(14.dp), tint = GoldPrimary)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Push All Delivered Items", fontSize = 11.sp, color = Color.White)
+                        }
+
+                        OutlinedButton(
+                            onClick = {
+                                val scriptCode = """
+function doGet(e) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var params = e.parameter;
+  var acct = params.accountNumber || "";
+  var customerName = params.customerName || "";
+  var deliveryDate = params.delivered || params.deliveryDate || params.delivery_date || "";
+  var action = params.action || "UPDATE";
+  
+  if (!acct && !customerName) {
+    return ContentService.createTextOutput("Missing Account Number or Customer Name");
+  }
+  
+  var data = sheet.getDataRange().getValues();
+  var found = false;
+  
+  for (var i = 1; i < data.length; i++) {
+    var sheetAcct = String(data[i][0]).trim();
+    var sheetName = String(data[i][1]).trim().toUpperCase();
+    
+    if ((acct && sheetAcct === String(acct).trim()) || (customerName && sheetName === String(customerName).trim().toUpperCase())) {
+      found = true;
+      if (action === "DELIVER" || action === "UPDATE") {
+        sheet.getRange(i + 1, 6).setValue(deliveryDate); // Column 6 = DELIVERED
+      } else if (action === "ACTIVATE") {
+        sheet.getRange(i + 1, 6).setValue("");
+      } else if (action === "DELETE") {
+        sheet.deleteRow(i + 1);
+      }
+      break;
+    }
+  }
+  
+  if (!found && action === "DELIVER") {
+    sheet.appendRow([acct, customerName, params.phoneNumber || "", params.receiveDate || "", params.address || "", deliveryDate, params.fatherName || "", params.regNo || ""]);
+  }
+  
+  return ContentService.createTextOutput("SUCCESS");
+}
+                                """.trimIndent()
+
+                                clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(scriptCode))
+                                userMessage = "Google Apps Script code copied to clipboard!"
+                            },
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(Icons.Default.Code, contentDescription = null, modifier = Modifier.size(14.dp), tint = GoldPrimary)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Copy Apps Script Code", fontSize = 11.sp, color = GoldPrimary)
                         }
                     }
                 }
@@ -145,7 +202,7 @@ fun SettingsScreen(
                     Text("Official Spreadsheet Templates", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = GoldPrimary)
                     Text("Copy and set up your import sheets using the link below. Keep the column headings in the exact sequential order listed below.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
 
-                    // Template 1: Debit Card & PIN
+                    // Template 1: Debit Card
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -157,7 +214,7 @@ fun SettingsScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("1. Debit Card & PIN", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = GoldPrimary)
+                            Text("1. Debit Card", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = GoldPrimary)
                             TextButton(
                                 contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
                                 onClick = {
@@ -179,7 +236,7 @@ fun SettingsScreen(
                         )
                     }
 
-                    // Template 2: DPS Slip
+                    // Template 2: CHEQUE BOOK
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -191,41 +248,7 @@ fun SettingsScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("2. DPS Slip", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = GoldPrimary)
-                            TextButton(
-                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
-                                onClick = {
-                                    val url = "https://docs.google.com/spreadsheets/d/1Ah7wHvJDbzAF9VUJLlBs6YHKfInY6ZWeXlmyZtlUj9Q/edit?usp=sharing"
-                                    clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(url))
-                                    userMessage = "Official Sheets link copied!"
-                                }
-                            ) {
-                                Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(12.dp), tint = GoldPrimary)
-                                Spacer(modifier = Modifier.width(3.dp))
-                                Text("Copy Sheets Link", fontSize = 10.sp, color = GoldPrimary)
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Columns: Column A (Customer Name) | Column B (Account Number) | Column C (Address / Location) | Column D (Phone Number) | Column E (Remarks / DPS Amount)",
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
-                        )
-                    }
-
-                    // Template 3: CHEQUE BOOK
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(SlateDark.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
-                            .padding(10.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("3. CHEQUE BOOK", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = GoldPrimary)
+                            Text("2. Cheque Book", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = GoldPrimary)
                             TextButton(
                                 contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
                                 onClick = {

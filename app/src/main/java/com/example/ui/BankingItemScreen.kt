@@ -796,7 +796,9 @@ fun BankingItemScreen(
                         val date = if (tabSelected == 1 && item.deliveryDate > 0L) Date(item.deliveryDate) else Date(item.receivedDate)
                         groupSdf.format(date)
                     }
-                    val sortedKeys = groupedItemsMap.keys.sortedDescending()
+                    val sortedKeys = groupedItemsMap.keys.sortedByDescending { dateKey ->
+                        try { groupSdf.parse(dateKey)?.time ?: 0L } catch (e: Exception) { 0L }
+                    }
 
                     sortedKeys.forEach { dateKey ->
                         val groupItems = (groupedItemsMap[dateKey] ?: emptyList()).sortedWith(
