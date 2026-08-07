@@ -139,11 +139,29 @@ fun SettingsScreen(
                             onClick = {
                                 val scriptCode = """
 function doGet(e) {
+  return handleRequest(e);
+}
+
+function doPost(e) {
+  return handleRequest(e);
+}
+
+function handleRequest(e) {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-  var params = e.parameter;
-  var acct = params.accountNumber || "";
-  var customerName = params.customerName || "";
-  var deliveryDate = params.delivered || params.deliveryDate || params.delivery_date || "";
+  var params = (e && e.parameter) ? e.parameter : {};
+  
+  if (e && e.postData && e.postData.contents) {
+    try {
+      var json = JSON.parse(e.postData.contents);
+      for (var k in json) {
+        params[k] = json[k];
+      }
+    } catch(ex) {}
+  }
+  
+  var acct = params.accountNumber || params.account_number || params.acNo || params.account || "";
+  var customerName = params.customerName || params.customer_name || params.name || "";
+  var deliveryDate = params.delivered || params.deliveryDate || params.delivery_date || params.delivered_date || params.date || "";
   var action = params.action || "UPDATE";
   
   if (!acct && !customerName) {
@@ -157,10 +175,18 @@ function doGet(e) {
     var sheetAcct = String(data[i][0]).trim();
     var sheetName = String(data[i][1]).trim().toUpperCase();
     
-    if ((acct && sheetAcct === String(acct).trim()) || (customerName && sheetName === String(customerName).trim().toUpperCase())) {
+    var matchAcct = acct && (sheetAcct === String(acct).trim());
+    var matchName = customerName && (sheetName === String(customerName).trim().toUpperCase());
+    
+    if (matchAcct || matchName) {
       found = true;
       if (action === "DELIVER" || action === "UPDATE") {
+        if (params.phoneNumber || params.phone) sheet.getRange(i + 1, 3).setValue(params.phoneNumber || params.phone);
+        if (params.receiveDate || params.receivedDate) sheet.getRange(i + 1, 4).setValue(params.receiveDate || params.receivedDate);
+        if (params.address) sheet.getRange(i + 1, 5).setValue(params.address);
         sheet.getRange(i + 1, 6).setValue(deliveryDate); // Column 6 = DELIVERED
+        if (params.fatherName || params.father_name) sheet.getRange(i + 1, 7).setValue(params.fatherName || params.father_name);
+        if (params.regNo || params.reg_no) sheet.getRange(i + 1, 8).setValue(params.regNo || params.reg_no);
       } else if (action === "ACTIVATE") {
         sheet.getRange(i + 1, 6).setValue("");
       } else if (action === "DELETE") {
@@ -170,8 +196,17 @@ function doGet(e) {
     }
   }
   
-  if (!found && action === "DELIVER") {
-    sheet.appendRow([acct, customerName, params.phoneNumber || "", params.receiveDate || "", params.address || "", deliveryDate, params.fatherName || "", params.regNo || ""]);
+  if (!found && (action === "DELIVER" || action === "UPDATE" || action === "ADD")) {
+    sheet.appendRow([
+      acct,
+      customerName,
+      params.phoneNumber || params.phone || "",
+      params.receiveDate || params.receivedDate || "",
+      params.address || "",
+      deliveryDate,
+      params.fatherName || params.father_name || "",
+      params.regNo || params.reg_no || ""
+    ]);
   }
   
   return ContentService.createTextOutput("SUCCESS");

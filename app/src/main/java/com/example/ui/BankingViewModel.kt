@@ -283,58 +283,174 @@ class BankingViewModel(application: Application) : AndroidViewModel(application)
     fun sendItemToRemoteExcel(item: BankingItem, action: String = "UPDATE") {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             try {
-                // Column 1: A/C Number, Column 2: Customer Name, Column 3: Phone Number, Column 4: Receive Date, Column 5: Address, Column 6: Delivery Date
                 val dateFormat = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
                 val receiveDateStr = if (item.receivedDate > 0L) dateFormat.format(Date(item.receivedDate)) else ""
-                val deliveredStr = if (item.isDelivered) {
-                    if (item.deliveryDate > 0L) dateFormat.format(Date(item.deliveryDate)) else dateFormat.format(Date())
-                } else "" // Empty string erases delivery date in 6th column if active back!
+                val deliveredDateObj = if (item.isDelivered) {
+                    if (item.deliveryDate > 0L) Date(item.deliveryDate) else Date()
+                } else null
+
+                val deliveredStr = if (deliveredDateObj != null) dateFormat.format(deliveredDateObj) else ""
 
                 val savedScriptUrl = getSavedAppsScriptUrl()
                 val urlsToTry = mutableListOf<String>()
                 if (savedScriptUrl.isNotBlank()) {
                     urlsToTry.add(savedScriptUrl)
                 }
-                urlsToTry.add("https://script.google.com/macros/s/AKfycbz_example_script_id/exec")
 
-                val queryParams = "accountNumber=${java.net.URLEncoder.encode(item.accountNumber, "UTF-8")}" +
-                        "&customerName=${java.net.URLEncoder.encode(item.customerName, "UTF-8")}" +
-                        "&phoneNumber=${java.net.URLEncoder.encode(item.phoneNumber, "UTF-8")}" +
-                        "&receiveDate=${java.net.URLEncoder.encode(receiveDateStr, "UTF-8")}" +
-                        "&address=${java.net.URLEncoder.encode(item.address, "UTF-8")}" +
-                        "&delivered=${java.net.URLEncoder.encode(deliveredStr, "UTF-8")}" +
-                        "&deliveryDate=${java.net.URLEncoder.encode(deliveredStr, "UTF-8")}" +
-                        "&delivery_date=${java.net.URLEncoder.encode(deliveredStr, "UTF-8")}" +
-                        "&fatherName=${java.net.URLEncoder.encode(item.fatherName, "UTF-8")}" +
-                        "&regNo=${java.net.URLEncoder.encode(item.regNo, "UTF-8")}" +
-                        "&type=${java.net.URLEncoder.encode(item.type, "UTF-8")}" +
-                        "&action=${java.net.URLEncoder.encode(action, "UTF-8")}"
+                if (urlsToTry.isEmpty()) {
+                    android.util.Log.w("ExcelSync", "No Google Apps Script URL saved in settings.")
+                    return@launch
+                }
+
+                val paramsMap = mapOf(
+                    "accountNumber" to item.accountNumber,
+                    "account_number" to item.accountNumber,
+                    "acNo" to item.accountNumber,
+                    "account" to item.accountNumber,
+                    "customerName" to item.customerName,
+                    "customer_name" to item.customerName,
+                    "name" to item.customerName,
+                    "phoneNumber" to item.phoneNumber,
+                    "phone" to item.phoneNumber,
+                    "receiveDate" to receiveDateStr,
+                    "receivedDate" to receiveDateStr,
+                    "address" to item.address,
+                    "delivered" to deliveredStr,
+                    "deliveryDate" to deliveredStr,
+                    "delivery_date" to deliveredStr,
+                    "delivered_date" to deliveredStr,
+                    "deliveredDate" to deliveredStr,
+                    "date" to deliveredStr,
+                    "fatherName" to item.fatherName,
+                    "father_name" to item.fatherName,
+                    "regNo" to item.regNo,
+                    "reg_no" to item.regNo,
+                    "type" to item.type,
+                    "action" to action,
+                    "status" to if (item.isDelivered) "DELIVERED" else "PENDING"
+                )
 
                 for (scriptUrl in urlsToTry) {
-                    if (scriptUrl.isBlank()) continue
-                    try {
-                        val finalUrl = if (scriptUrl.contains("?")) "$scriptUrl&$queryParams" else "$scriptUrl?$queryParams"
-                        val connection = java.net.URL(finalUrl).openConnection() as java.net.HttpURLConnection
-                        connection.connectTimeout = 8000
-                        connection.readTimeout = 8000
-                        connection.requestMethod = "GET"
-                        connection.instanceFollowRedirects = true
-
-                        val responseCode = connection.responseCode
-                        android.util.Log.d("ExcelSync", "Sheet update sync: action=$action code=$responseCode url=$scriptUrl acct=${item.accountNumber} delivered=$deliveredStr")
-                        if (responseCode == 200 || responseCode == 302) {
-                            break
-                        }
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                        android.util.Log.e("ExcelSync", "Background Excel sync failed for $scriptUrl: ${e.localizedMessage}")
+                    val success = executeAppsScriptRequest(scriptUrl, paramsMap)
+                    if (success) {
+                        android.util.Log.d("ExcelSync", "Successfully synced item to Google Sheet: acct=${item.accountNumber} action=$action delivered=$deliveredStr")
+                        break
                     }
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
-                android.util.Log.e("ExcelSync", "Background Excel sync failed: ${e.localizedMessage}")
+                android.util.Log.e("ExcelSync", "Background Excel sync exception: ${e.localizedMessage}")
             }
         }
+    }
+
+    private fun executeAppsScriptRequest(url: String, params: Map<String, String>): Boolean {
+        if (url.isBlank() || url.contains("AKfycbz_example_script_id")) return false
+        var currentUrl = url.trim()
+        if (!currentUrl.startsWith("http://") && !currentUrl.startsWith("https://")) {
+            currentUrl = "https://$currentUrl"
+        }
+
+        val queryBuilder = StringBuilder()
+        params.forEach { (k, v) ->
+            if (queryBuilder.isNotEmpty()) queryBuilder.append("&")
+            queryBuilder.append(java.net.URLEncoder.encode(k, "UTF-8"))
+            queryBuilder.append("=")
+            queryBuilder.append(java.net.URLEncoder.encode(v, "UTF-8"))
+        }
+        val queryString = queryBuilder.toString()
+
+        // 1. Try GET Request with automatic redirect tracking (handling 301/302/303/307/308 redirects)
+        var getSuccess = false
+        try {
+            var reqUrl = if (currentUrl.contains("?")) "$currentUrl&$queryString" else "$currentUrl?$queryString"
+            var redirects = 0
+            while (redirects < 6) {
+                val connection = java.net.URL(reqUrl).openConnection() as java.net.HttpURLConnection
+                connection.connectTimeout = 12000
+                connection.readTimeout = 12000
+                connection.instanceFollowRedirects = true
+                connection.requestMethod = "GET"
+                connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Android; Mobile)")
+
+                val responseCode = connection.responseCode
+                android.util.Log.d("ExcelSync", "GET redirect loop #$redirects code=$responseCode url=$reqUrl")
+
+                if (responseCode in listOf(301, 302, 303, 307, 308)) {
+                    val location = connection.getHeaderField("Location")
+                    if (!location.isNullOrBlank()) {
+                        reqUrl = location
+                        redirects++
+                        continue
+                    }
+                }
+
+                val stream = if (responseCode in 200..299) connection.inputStream else connection.errorStream
+                val responseText = stream?.bufferedReader()?.use { it.readText() } ?: ""
+                android.util.Log.d("ExcelSync", "GET final response code=$responseCode body=$responseText")
+
+                if (responseCode in 200..299) {
+                    getSuccess = true
+                }
+                break
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            android.util.Log.e("ExcelSync", "GET request error: ${e.localizedMessage}")
+        }
+
+        if (getSuccess) return true
+
+        // 2. Try POST Request with JSON payload as fallback
+        try {
+            var postUrl = currentUrl
+            val jsonPayload = org.json.JSONObject().apply {
+                params.forEach { (k, v) -> put(k, v) }
+            }.toString()
+
+            var redirects = 0
+            while (redirects < 6) {
+                val connection = java.net.URL(postUrl).openConnection() as java.net.HttpURLConnection
+                connection.connectTimeout = 12000
+                connection.readTimeout = 12000
+                connection.instanceFollowRedirects = true
+                connection.requestMethod = "POST"
+                connection.doOutput = true
+                connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+                connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Android; Mobile)")
+
+                connection.outputStream.use { os ->
+                    os.write(jsonPayload.toByteArray(Charsets.UTF_8))
+                    os.flush()
+                }
+
+                val responseCode = connection.responseCode
+                android.util.Log.d("ExcelSync", "POST redirect loop #$redirects code=$responseCode url=$postUrl")
+
+                if (responseCode in listOf(301, 302, 303, 307, 308)) {
+                    val location = connection.getHeaderField("Location")
+                    if (!location.isNullOrBlank()) {
+                        postUrl = location
+                        redirects++
+                        continue
+                    }
+                }
+
+                val stream = if (responseCode in 200..299) connection.inputStream else connection.errorStream
+                val responseText = stream?.bufferedReader()?.use { it.readText() } ?: ""
+                android.util.Log.d("ExcelSync", "POST final response code=$responseCode body=$responseText")
+
+                if (responseCode in 200..299) {
+                    return true
+                }
+                break
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            android.util.Log.e("ExcelSync", "POST request error: ${e.localizedMessage}")
+        }
+
+        return getSuccess
     }
 
     fun syncExistingDataToExcelInBackground() {

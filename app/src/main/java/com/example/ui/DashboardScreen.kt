@@ -301,7 +301,7 @@ fun DashboardScreen(
             item {
                 StatCard(
                     title = "FD CALCULATOR",
-                    value = "Fixed Deposit",
+                    value = "",
                     icon = Icons.Default.Calculate,
                     iconColor = GoldPrimary,
                     onClick = { onNavigate("fd_calc") }
@@ -309,8 +309,8 @@ fun DashboardScreen(
             }
             item {
                 StatCard(
-                    title = "Loan Calculator",
-                    value = "EMI Estimates",
+                    title = "LOAN CALCULATOR",
+                    value = "",
                     icon = Icons.Default.Calculate,
                     iconColor = GreenAccent,
                     onClick = { onNavigate("loan_calc") }
@@ -318,8 +318,8 @@ fun DashboardScreen(
             }
             item {
                 StatCard(
-                    title = "DPS Calculator",
-                    value = "DPS Savings",
+                    title = "DPS CALCULATOR",
+                    value = "",
                     icon = Icons.Default.Calculate,
                     iconColor = GoldLight,
                     onClick = { onNavigate("dps_calc") }
@@ -328,7 +328,7 @@ fun DashboardScreen(
             item {
                 StatCard(
                     title = "FINANCIAL ADVISOR",
-                    value = "Financial Advisor",
+                    value = "",
                     icon = Icons.Default.Psychology,
                     iconColor = GoldPrimary,
                     onClick = { onNavigate("financial_advisor") }
@@ -455,7 +455,7 @@ fun DashboardScreen(
 @Composable
 fun StatCard(
     title: String,
-    value: String,
+    value: String = "",
     icon: ImageVector,
     iconColor: Color,
     onClick: () -> Unit
@@ -478,9 +478,9 @@ fun StatCard(
             ) {
                 Text(
                     text = title,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    fontSize = if (value.isNotEmpty()) 11.sp else 13.5.sp,
+                    fontWeight = if (value.isNotEmpty()) FontWeight.Medium else FontWeight.Bold,
+                    color = if (value.isNotEmpty()) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurface
                 )
                 Icon(
                     imageVector = icon,
@@ -489,12 +489,14 @@ fun StatCard(
                     modifier = Modifier.size(16.dp)
                 )
             }
-            Text(
-                text = value,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
+            if (value.isNotEmpty()) {
+                Text(
+                    text = value,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
         }
     }
 }

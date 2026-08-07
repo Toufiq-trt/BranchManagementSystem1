@@ -2063,7 +2063,7 @@ object PdfHelper {
         canvas.drawRect(0f, 0f, pageWidth.toFloat(), pageHeight.toFloat(), bgPaint)
 
         // Title Block
-        canvas.drawText("TOUFIQ AI FINANCIAL PLANNER", pageWidth / 2f, 42f, titlePaint)
+        canvas.drawText("TOUFIQ FINANCIAL ADVISOR", pageWidth / 2f, 42f, titlePaint)
         canvas.drawText("SHIMANTO BANK PLC. | WEALTH MANAGEMENT ADVISORY", pageWidth / 2f, 58f, subTitlePaint)
 
         var currentY = 74f

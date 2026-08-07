@@ -29,6 +29,7 @@ import com.example.ui.theme.GoldLight
 import com.example.ui.theme.GoldPrimary
 import com.example.ui.theme.SlateDark
 import com.example.util.PdfHelper
+import kotlin.math.pow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -819,18 +820,35 @@ fun FinancialAdvisorScreen(
                                     val line = advisorReportText.split("\n")[index]
                                     val trimmed = line.trim()
                                     if (trimmed.isNotBlank()) {
-                                        val isHeader = trimmed.startsWith("১.") || trimmed.startsWith("২.") || trimmed.startsWith("৩.") || trimmed.startsWith("৪.") ||
-                                                trimmed.contains("গ্রাহকের সংক্ষিপ্ত") || trimmed.contains("আয় ও খরচের অনুপাত") || trimmed.contains("আর্থিক স্বাধীনতার") || trimmed.contains("সম্পূর্ণ ব্যাংকিং বিনিয়োগ")
+                                        val isHeader = trimmed.startsWith("১.") || trimmed.startsWith("২.") || trimmed.startsWith("৩.") || trimmed.startsWith("৪.") || trimmed.startsWith("৫.") ||
+                                                trimmed.contains("গ্রাহকের সংক্ষিপ্ত") || trimmed.contains("আয় ও খরচের অনুপাত") || trimmed.contains("আর্থিক স্বাধীনতার") || trimmed.contains("সম্পূর্ণ ব্যাংকিং বিনিয়োগ") || trimmed.contains("বাজেট পুনর্গঠন") || trimmed.contains("কোটিপতি")
+
+                                        val isTreeLine = trimmed.contains("├──") || trimmed.contains("└──") || trimmed.contains("──>") || trimmed.contains("▼") || (trimmed.startsWith("│") && !trimmed.contains("http")) || trimmed.startsWith("[মাসিক") || trimmed.startsWith("[৩ বছর") || trimmed.startsWith("[৬ বছর") || trimmed.startsWith("[২৫-৩০") || trimmed.startsWith("+---") || trimmed.startsWith("|") || trimmed.contains("---|") || (trimmed.contains("|") && trimmed.endsWith("|"))
 
                                         if (isHeader) {
                                             Text(
                                                 text = trimmed,
                                                 fontWeight = FontWeight.Bold,
-                                                fontSize = 13.5.sp,
+                                                fontSize = 14.sp,
                                                 color = GoldPrimary,
-                                                modifier = Modifier.padding(top = 10.dp, bottom = 4.dp)
+                                                modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)
                                             )
-                                        } else if (trimmed.contains("ভালো (Good)") || trimmed.contains("✅")) {
+                                        } else if (isTreeLine) {
+                                            Surface(
+                                                color = Color(0xFF0F172A),
+                                                shape = RoundedCornerShape(6.dp),
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                Text(
+                                                    text = line,
+                                                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    fontSize = 11.5.sp,
+                                                    color = Color(0xFFE2B714),
+                                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                                )
+                                            }
+                                        } else if (trimmed.contains("ভালো (Good)") || trimmed.contains("✅") || trimmed.contains("ফাইনানশিয়াল ফ্রীডম")) {
                                             Surface(
                                                 color = Color(0xFF1B382B),
                                                 shape = RoundedCornerShape(4.dp),
@@ -858,7 +876,7 @@ fun FinancialAdvisorScreen(
                                                     modifier = Modifier.padding(8.dp)
                                                 )
                                             }
-                                        } else if (trimmed.startsWith("ধাপ") || trimmed.startsWith("Step")) {
+                                        } else if (trimmed.startsWith("ধাপ") || trimmed.startsWith("Step") || trimmed.startsWith("মাইলফলক")) {
                                             Surface(
                                                 color = SlateDark.copy(alpha = 0.5f),
                                                 shape = RoundedCornerShape(4.dp),
@@ -896,43 +914,46 @@ private suspend fun runFinancialAdvisorAnalysis(input: PdfHelper.FinancialAdviso
     if (!apiKey.isNullOrBlank() && apiKey != "MY_GEMINI_API_KEY") {
         try {
             val systemInstruction = """
-                You are a senior Financial Advisor at a leading Bangladeshi bank.
-                Provide a complete, professional, highly accurate financial and investment advisory report in BANGLA LANGUAGE.
-                
-                Follow this EXACT format and headings in Bangla:
+                You are an elite, senior Financial Advisor at Shimanto Bank PLC, Bangladesh.
+                Your goal is to provide 100% mathematically accurate, realistic, highly structured, visual step-by-step Financial Freedom & Wealth Roadmap (কোটিপতি ও ফাইনানশিয়াল ফ্রীডম রোডম্যাপ) in BANGLA tailored strictly to the client's actual financial numbers.
 
-                ১. গ্রাহকের সংক্ষিপ্ত আর্থিক বিবরণী
-                - Name, Age, Profession
-                - Total Income, Total Expense, Net Savings, Cash in Hand
-                - Loan status (if any: details; if none: "কোনো ঋণ নেই")
-                - Running Savings status (if any: DPS/FDR details; if none: "কোনো ডিপিএস/এফডিআর নেই")
+                CORE MATHEMATICAL & ADVISORY MANDATES:
+                1. Exact Math & 50/30/20 Budgeting Rule:
+                   - 50% Needs (মৌলিক প্রয়োজন: বাসা ভাড়া, ইউটিলিটি, লোন ইএমআই, খাদ্য, যাতায়াত). Sub-items MUST SUM EXACTLY to 50% of Income!
+                   - 30% Wants/Lifestyle & Travel (জীবনযাত্রা, বিনোদন ও ভ্রমণ): Sub-items MUST SUM EXACTLY to 30% of Income! (e.g. Vacation/Travel budget + Personal Expenses).
+                   - 20% Savings & Investment Target (সঞ্চয় ও বিনিয়োগ): Emergency Reserve + DPS. Sub-items MUST SUM EXACTLY to 20%!
 
-                ২. আয় ও খরচের অনুপাত বিশ্লেষণ (৫০/৩০/২০ বাজেট নিয়ম)
-                - Explain 50/30/20 Rule: 50% Needs, 30% Wants, 20% Savings
-                - State exact amounts for 50%, 30%, 20% based on total income
-                - State Income : Expense : Savings ratio
-                - State Percent of budget used ((Total Expense / Total Income) * 100)
-                - Analyze whether customer's needs and savings fit this range.
-                - If YES: mark "ভালো (Good)"
-                - If NO: give exact BDT guidance on how much to reduce expenses to fit 50% limit and reach 20% savings.
+                2. Practical Advice for Low Current Savings:
+                   - Do NOT demand unrealistic jumps (e.g., if customer currently saves BDT 3,000, do NOT force them to start a BDT 9,000 DPS immediately).
+                   - Start Phase 1 with what the customer CAN realistically save RIGHT NOW (e.g. BDT 2,000 - 3,000/month DPS).
+                   - Provide a step-by-step gradual increase strategy (e.g. adding BDT 1,000/year as income increases) to comfortably reach the 20% savings target over time.
 
-                ৩. আর্থিক স্বাধীনতার সময়সীমা (Financial Freedom / FIRE Calculator)
-                - Annual Expenses (Total Expense * 12)
-                - Target FIRE Fund (25 * Annual Expense)
-                - Calculate estimated number of years to reach Financial Freedom assuming 10% annual compound growth.
+                3. Visual ASCII Tree Diagram (গাঠনিক ফ্লো-চার্ট):
+                   Draw a clean visual tree chart using ASCII characters (`├──`, `└──`, `│`, `──>`, `▼`) mapping monthly income down to exact 50/30/20 sub-items, emergency reserve, and compounding investment stages.
 
-                ৪. ধাপ অনুযায়ী সম্পূর্ণ ব্যাংকিং বিনিয়োগ পরিকল্পনা (Step-by-Step Wealth Plan)
-                - Step 1: Emergency Reserve (3-6 months expense in liquid/short FDR)
-                - Step 2: DPS Strategy (3-year DPS at 10%-11% interest)
-                - Step 3: FDR Strategy (1-year / 3-month FDR at 8%-11%, explain 10%-15% AIT/tax deduction, explain monthly payout vs 1-year reinvestment)
-                - Step 4: Double Money Scheme (6-7 years to double FDR)
-                - Step 5: Loan Advice (Bank loans 10%-14% vs 25-yr home loan 9%)
+                4. Precise Compounding Investment Math (ডিপিএস -> এফডিআর -> ২য় ডিপিএস -> ডাবল মানি স্কিম):
+                   - DPS Compound Interest Formula: M = P * [((1 + i)^n - 1) / i] * (1 + i) where i = 10.5% / 12 = 0.00875.
+                   - FDR Net Return: 11% annual rate with 15% AIT source tax deduction (Net Annual = Principal * 9.35%).
+                   - 2nd DPS starting at Year 4 using (Base DPS + Step-Up + FDR Monthly Net Profit).
+                   - Double Money Scheme (7-Year doubling).
+                   - Long-term compounding wealth snowball up to 25-30 years reaching Financial Freedom (৳১ কোটি+ থেকে ৳৩+ কোটি!).
 
-                LANGUAGE: Professional, polite, clear BANGLA.
+                5. Required 6 Structured Sections in BANGLA:
+                   ১. গ্রাহকের প্রোফাইল ও গাণিতিক বাজেট বিশ্লেষণ (50/30/20 Exact Math Budget Analysis)
+                   ২. বাজেট প্রবাহ ও গাণিতিক দৃশ্যমান ছক (Visual ASCII Budget Tree)
+                   ৩. বাস্তবসম্মত ধাপ-ভিত্তিক চক্রবৃদ্ধি ডিপিএস রোডম্যাপ (Step-by-step Starting Small to Scaling Up Roadmap)
+                   ৪. বছরভিত্তিক প্রবৃদ্ধি ও কোটিপতি রোডম্যাপ ছক (Milestone Wealth Table formatted with '|' columns)
+                   ৫. জীবনযাত্রার নিরাপত্তা, চিকিৎসা, ভ্রমণ ও প্যাসিভ ইনকাম (Life Security, Travel & Monthly Passive Income)
+                   ৬. বর্তমান সাধারণ পদ্ধতি বনাম AI এডভাইজর রোডম্যাপ তুলনা ছক (Comparison Table: Traditional Savings vs AI Compounding Roadmap)
+
+                6. Table Formatting:
+                   Use clean ASCII table format with '|' columns for sections 4 and 6.
+
+                CRITICAL: Every sub-allocation must sum up to its exact header budget. No math errors!
             """.trimIndent()
 
             val prompt = """
-                Customer Data:
+                Customer Profile Input:
                 Name: ${input.name}
                 Age: ${input.age}
                 Profession: ${input.employment}
@@ -947,8 +968,8 @@ private suspend fun runFinancialAdvisorAnalysis(input: PdfHelper.FinancialAdviso
                 Total Expense: BDT ${input.totalExpense}
                 Net Monthly Savings: BDT ${input.monthlySavings}
                 Cash in Hand: BDT ${input.cashInHand}
-                Has Loan: ${input.hasLoan} (Amount: BDT ${input.loanAmount}, Outstanding: BDT ${input.loanOutstanding}, EMI: BDT ${input.loanEmi}, Tenure: ${input.loanFinishDate})
-                Has Running Savings: ${input.hasRunningSavings} (Category: ${input.savingsCategory}, Amount: BDT ${input.savingsAmount}, Tenure: ${input.savingsTenure} yrs, Rate: ${input.savingsInterestRate}%, Type: ${input.fdrPayoutType}, Start: ${input.savingsStartDate}, Finish: ${input.savingsFinishDate})
+                Has Loan: ${input.hasLoan} (Amount: BDT ${input.loanAmount}, Outstanding: BDT ${input.loanOutstanding}, EMI: BDT ${input.loanEmi})
+                Has Running Savings: ${input.hasRunningSavings} (Category: ${input.savingsCategory}, Amount: BDT ${input.savingsAmount}, Rate: ${input.savingsInterestRate}%)
             """.trimIndent()
 
             val jsonBody = JSONObject().apply {
@@ -996,141 +1017,191 @@ private suspend fun runFinancialAdvisorAnalysis(input: PdfHelper.FinancialAdviso
         }
     }
 
-    // Fallback Deterministic Rule Engine in BANGLA
     generateRuleBasedAdvisorAnalysis(input)
 }
 
 private fun generateRuleBasedAdvisorAnalysis(input: PdfHelper.FinancialAdvisorInput): String {
     val fmt = NumberFormat.getNumberInstance(Locale.US)
 
-    val inc = if (input.totalIncome > 0) input.totalIncome else (input.salary + input.otherIncome)
-    val exp = if (input.totalExpense > 0) input.totalExpense else input.monthlyExpenses
-    val netSav = if (input.monthlySavings > 0) input.monthlySavings else (inc - exp).coerceAtLeast(0.0)
+    val salary = if (input.salary > 0) input.salary else 0.0
+    val otherInc = if (input.otherIncome > 0) input.otherIncome else 0.0
+    var inc = if (input.totalIncome > 0) input.totalIncome else (salary + otherInc)
+    if (inc <= 0) inc = 30000.0
 
-    // Budget ratios
-    val needsLimit = inc * 0.50
-    val wantsLimit = inc * 0.30
-    val savingsLimit = inc * 0.20
+    val rent = if (input.rentExpense > 0) input.rentExpense else 0.0
+    val food = if (input.foodExpense > 0) input.foodExpense else 0.0
+    val elec = if (input.electricityExpense > 0) input.electricityExpense else 0.0
+    val trans = if (input.transportExpense > 0) input.transportExpense else 0.0
+    val loanEmi = if (input.hasLoan && input.loanEmi > 0) input.loanEmi else 0.0
+    val otherExp = if (input.otherExpense > 0) input.otherExpense else 0.0
 
-    // Needs expenses (Rent + Food + Electricity + Transport + EMI)
-    val needsExpense = input.rentExpense + input.foodExpense + input.electricityExpense + input.transportExpense + (if (input.hasLoan) input.loanEmi else 0.0)
-    val wantsExpense = input.otherExpense
+    val itemizedExp = rent + food + elec + trans + loanEmi + otherExp
+    var exp = if (input.totalExpense > 0) input.totalExpense else itemizedExp
+    if (exp <= 0) exp = inc * 0.80
 
-    val usedPct = if (inc > 0) (exp / inc) * 100.0 else 0.0
-    val isBudgetGood = needsExpense <= needsLimit && netSav >= savingsLimit
+    val actualSavings = (inc - exp).coerceAtLeast(0.0)
 
-    // Ratio expression
-    val ratioExp = if (inc > 0) {
-        val expUnits = ((exp / inc) * 10).toInt()
-        val savUnits = ((netSav / inc) * 10).toInt()
-        "১০ : $expUnits : $savUnits (আয় : খরচ : সঞ্চয়)"
-    } else "৪ : ৩ : ১"
+    // Standard 50/30/20 Rule Targets
+    val targetNeeds = inc * 0.50  // 50% Needs
+    val targetWants = inc * 0.30  // 30% Wants / Lifestyle
+    val targetSavings = inc * 0.20 // 20% Savings Target
 
-    // FIRE Calculation
-    val annualExpense = exp * 12.0
-    val targetFireFund = annualExpense * 25.0 // 25x rule
-    val currentLiquid = input.cashInHand + (if (input.hasRunningSavings && input.savingsCategory == "FDR") input.savingsAmount else 0.0)
+    // 1. Needs Sub-Allocations (MUST sum to targetNeeds EXACTLY)
+    val rentAlloc = if (rent > 0) rent.coerceAtMost(targetNeeds * 0.70) else (targetNeeds * 0.55)
+    val foodUtilAlloc = targetNeeds - rentAlloc // Exact balance to hit targetNeeds
 
-    // Calculate years to FIRE
-    var yearsToFi = 0.0
-    if (netSav > 0) {
-        var accumulated = currentLiquid
-        var month = 0
-        val rMonthly = 0.10 / 12.0 // 10% annual interest
-        while (accumulated < targetFireFund && month < 600) { // max 50 years
-            accumulated = (accumulated * (1 + rMonthly)) + netSav
-            month++
-        }
-        yearsToFi = month / 12.0
+    // 2. Wants / Lifestyle Sub-Allocations (MUST sum to targetWants EXACTLY)
+    val travelLeisureMonthly = (inc * 0.05).coerceAtLeast(500.0).coerceAtMost(targetWants * 0.30)
+    val personalWantsAlloc = targetWants - travelLeisureMonthly // Exact balance to hit targetWants
+
+    // 3. Realistic Savings Starting Amount & Step-up
+    val initialSavingsTarget = if (actualSavings > 1000.0) actualSavings else (inc * 0.10)
+    val medicalReserveMonthly = (initialSavingsTarget * 0.15).coerceAtLeast(300.0)
+    val startingDps = (initialSavingsTarget - medicalReserveMonthly).coerceAtLeast(1000.0)
+    val stepUpAmount = ((targetSavings - initialSavingsTarget) / 3.0).coerceAtLeast(500.0)
+
+    // Compound DPS Helper
+    fun calcDpsMaturity(monthly: Double, months: Int, annualRate: Double = 0.105): Double {
+        val r = annualRate / 12.0
+        if (r <= 0) return monthly * months
+        return monthly * (((1.0 + r).pow(months.toDouble()) - 1.0) / r) * (1.0 + r)
     }
+
+    // Step 1: 3-Year DPS (Year 1-3)
+    val dps1Maturity = calcDpsMaturity(startingDps, 36, 0.105)
+    val dps1Deposit = startingDps * 36
+    val dps1Profit = dps1Maturity - dps1Deposit
+
+    // Step 2: 1-Year FDR (Year 4-6)
+    val fdr1NetMonthlyYield = (dps1Maturity * 0.11 * 0.85) / 12.0
+    val dps2Monthly = startingDps + stepUpAmount + fdr1NetMonthlyYield
+    val dps2Maturity = calcDpsMaturity(dps2Monthly, 36, 0.105)
+    val dps2Deposit = dps2Monthly * 36
+    val dps2Profit = dps2Maturity - dps2Deposit
+
+    val totalFund6Yr = dps1Maturity + dps2Maturity
+
+    // Step 3: 7-Year Double Money Scheme (Year 7-13)
+    val doubleMoneyScheme13Yr = totalFund6Yr * 2.0
+    val dps3Monthly = startingDps + (stepUpAmount * 2.0)
+    val dps3Maturity = calcDpsMaturity(dps3Monthly, 84, 0.105)
+    val dps3Deposit = dps3Monthly * 84
+    val totalFund13Yr = doubleMoneyScheme13Yr + dps3Maturity
+
+    // Step 4: Long-term compounding (Year 14-25)
+    val dps4Monthly = dps3Monthly + stepUpAmount
+    val dps4Maturity = calcDpsMaturity(dps4Monthly, 84, 0.105)
+    val totalFund20Yr = totalFund13Yr * 2.0 + dps4Maturity
+
+    val dps5Monthly = dps4Monthly + stepUpAmount
+    val dps5Maturity = calcDpsMaturity(dps5Monthly, 60, 0.105)
+    val totalFund25Yr = totalFund20Yr * 1.6 + dps5Maturity
+
+    val totalDeposit25Yr = dps1Deposit + dps2Deposit + dps3Deposit + (dps4Monthly * 84) + (dps5Monthly * 60)
+    val totalProfit25Yr = totalFund25Yr - totalDeposit25Yr
+    val monthlyPassiveIncome25Yr = (totalFund25Yr * 0.105 * 0.85) / 12.0
+
+    // Traditional Unplanned Savings Comparison (25 Years)
+    val tradDeposit25Yr = startingDps * 12 * 25
+    val tradTotal25Yr = calcDpsMaturity(startingDps, 300, 0.03)
+    val tradProfit25Yr = tradTotal25Yr - tradDeposit25Yr
+    val tradMonthlyReturn25Yr = (tradTotal25Yr * 0.03 * 0.85) / 12.0
 
     val sb = StringBuilder()
 
     // Section 1
-    sb.appendLine("১. গ্রাহকের সংক্ষিপ্ত আর্থিক বিবরণী")
+    sb.appendLine("১. গ্রাহকের প্রোফাইল ও গাণিতিক বাজেট বিশ্লেষণ (50/30/20 Exact Math Analysis)")
     sb.appendLine("• গ্রাহকের নাম: ${input.name.ifBlank { "সম্মানিত গ্রাহক" }} (বয়স: ${input.age} বছর, পেশা: ${input.employment})")
-    sb.appendLine("• মোট মাসিক আয়: ৳ ${fmt.format(inc)} (বেতন: ৳ ${fmt.format(input.salary)} + অন্যান্য: ৳ ${fmt.format(input.otherIncome)})")
-    sb.appendLine("• মোট মাসিক খরচ: ৳ ${fmt.format(exp)} (বাসা ভাড়া: ৳ ${fmt.format(input.rentExpense)}, খাবার: ৳ ${fmt.format(input.foodExpense)}, বিদ্যুৎ/বিল: ৳ ${fmt.format(input.electricityExpense)}, যাতায়াত: ৳ ${fmt.format(input.transportExpense)}, অন্যান্য: ৳ ${fmt.format(input.otherExpense)})")
-    sb.appendLine("• অবশইষ্ট নিট সঞ্চয়: ৳ ${fmt.format(netSav)}")
-    sb.appendLine("• হাতে নগদ টাকা: ৳ ${fmt.format(input.cashInHand)}")
-    if (input.hasLoan) {
-        sb.appendLine("• ঋণ স্থিতি: মূল ঋণ ৳ ${fmt.format(input.loanAmount)}, বর্তমান বকেয়া ৳ ${fmt.format(input.loanOutstanding)}, মাসিক কিস্তি ৳ ${fmt.format(input.loanEmi)}, মেয়াদের শেষ: ${input.loanFinishDate}")
-    } else {
-        sb.appendLine("• ঋণ স্থিতি: বর্তমানে কোনো ঋণ নেই (একটি ইতিবাচক আর্থিক দিক)")
+    sb.appendLine("• মোট মাসিক আয়: ৳ ${fmt.format(inc)} | মোট মাসিক খরচ: ৳ ${fmt.format(exp)}")
+    sb.appendLine("• বর্তমান নিট সঞ্চয়: ৳ ${fmt.format(actualSavings)} (আয়ের ${"%.1f".format((actualSavings / inc) * 100)}%)")
+    if (input.hasLoan && input.loanEmi > 0) {
+        sb.appendLine("• ⚠️ লোন তথ্য: মাসিক ইএমআই ৳ ${fmt.format(input.loanEmi)} (বকেয়া ৳ ${fmt.format(input.loanOutstanding)})")
     }
-    if (input.hasRunningSavings) {
-        sb.appendLine("• চলমান সঞ্চয়: ক্যাটাগরি: ${input.savingsCategory}, পরিমাণ: ৳ ${fmt.format(input.savingsAmount)}, মেয়াদ: ${input.savingsTenure} বছর, সুদের হার: ${input.savingsInterestRate}%, ধরন: ${input.fdrPayoutType}, মেয়াদ: ${input.savingsStartDate} থেকে ${input.savingsFinishDate}")
-    } else {
-        sb.appendLine("• চলমান সঞ্চয়: বর্তমানে কোনো ডিপিএস বা এফডিআর চালু নেই")
+    if (input.cashInHand > 0) {
+        sb.appendLine("• 💵 হাতে নগদ অর্থ: ৳ ${fmt.format(input.cashInHand)}")
     }
+    sb.appendLine()
+    sb.appendLine("💡 ফাইনানশিয়াল এডভাইজরের বাজেট বিন্যাস (৫০/৩০/২০ রুল):")
+    sb.appendLine("  ১) মৌলিক প্রয়োজন (৫০% = ৳ ${fmt.format(targetNeeds)}): বাসা ভাড়া ৳ ${fmt.format(rentAlloc)} + খাদ্য, বিদ্যুৎ, ট্রান্সপোর্ট ও লোন ৳ ${fmt.format(foodUtilAlloc)} (মোট ৳ ${fmt.format(targetNeeds)})")
+    sb.appendLine("  ২) জীবনযাত্রা ও বিনোদন (৩০% = ৳ ${fmt.format(targetWants)}): ব্যক্তিগত ও পারিবারিক খরচ ৳ ${fmt.format(personalWantsAlloc)} + ভ্রমণ/ভ্যাকেশন সঞ্চয় ৳ ${fmt.format(travelLeisureMonthly)}/মাস (বছরে ৳ ${fmt.format(travelLeisureMonthly * 12)}) (মোট ৳ ${fmt.format(targetWants)})")
+    sb.appendLine("  ৩) সঞ্চয় ও বিনিয়োগ (২০% = ৳ ${fmt.format(targetSavings)}): ইমার্জেন্সি রিভার্স ফান্ড ৳ ${fmt.format(medicalReserveMonthly)}/মাস + ডিপিএস ৳ ${fmt.format(startingDps)}/মাস")
+    sb.appendLine("     * পরামর্শ: বর্তমানে আপনার সামর্থ্য অনুযায়ী ৳ ${fmt.format(startingDps)} টাকার ডিপিএস দিয়ে শুরু করুন। পরবর্তীতে প্রতি বছর বাজেট অপটিমাইজ করে ডিপিএস ৳ ${fmt.format(stepUpAmount)} করে বাড়িয়ে ২০% লক্ষ্যমাত্রায় পৌঁছান।")
     sb.appendLine()
 
     // Section 2
-    sb.appendLine("২. আয় ও খরচের অনুপাত বিশ্লেষণ (৫০/৩০/২০ বাজেট নিয়ম)")
-    sb.appendLine("• ৫০/৩০/২০ আদর্শ বাজেট স্ট্যান্ডার্ড:")
-    sb.appendLine("  - ৫০% মৌলিক প্রয়োজনীয় খরচ (Needs Limit): ৳ ${fmt.format(needsLimit)}")
-    sb.appendLine("  - ৩০% জীবনযাত্রা ও ইচ্ছা (Wants Limit): ৳ ${fmt.format(wantsLimit)}")
-    sb.appendLine("  - ২০% বাধ্যতামূলক সঞ্চয় (Mandatory Savings Limit): ৳ ${fmt.format(savingsLimit)}")
-    sb.appendLine("• বাজেটের অনুপাত (Ratio Expression): $ratioExp")
-    sb.appendLine("• ব্যবহৃত বাজেটের হার (Percent of Budget Used): ${"%.1f".format(usedPct)}%")
-    sb.appendLine()
-    if (isBudgetGood) {
-        sb.appendLine("• বাজেট মূল্যায়ন: ✅ ভালো (Good) - আপনার আয় ও খরচের অনুপাত আদর্শ বাজেটের সীমারেখার মধ্যে রয়েছে।")
-    } else {
-        sb.appendLine("• বাজেট মূল্যায়ন: ⚠️ সতর্কতা (Needs Optimization) - আপনার প্রয়োজনীয় খরচ অতিরিক্ত বা সঞ্চয়ের হার কম।")
-        sb.appendLine("• সংশোধনের পরামর্শ:")
-        sb.appendLine("  আপনার মোট আয় ৳ ${fmt.format(inc)} এর মধ্যে সর্বোচ্চ ৫০% বা ৳ ${fmt.format(needsLimit)} হলো মৌলিক খরচের সীমা। আপনার বর্তমান মৌলিক খরচ ৳ ${fmt.format(needsExpense)}। প্রয়োজনীয় খরচ কমিয়ে এই সীমার মধ্যে আনুন।")
-        sb.appendLine("  ৩০% বা ৳ ${fmt.format(wantsLimit)} জীবনযাত্রার ব্যয়ের জন্য বরাদ্দ রাখুন এবং প্রতি মাসে ন্যূনতম ২০% অর্থাৎ ৳ ${fmt.format(savingsLimit)} সঞ্চয় নিশ্চিত করুন।")
-    }
+    sb.appendLine("২. বাজেট প্রবাহ ও গাণিতিক দৃশ্যমান ছক (Visual Budget Tree Structure)")
+    sb.appendLine("মাসিক আয় থেকে কোটিপতি ফান্ডের নিখুঁত ফ্লো-চার্ট:")
+    sb.appendLine("[মাসিক আয়: ৳${fmt.format(inc)}]")
+    sb.appendLine("  ├── ৳${fmt.format(targetNeeds)} (৫০% মৌলিক প্রয়োজন)")
+    sb.appendLine("  │     ├── ৳${fmt.format(rentAlloc)} ──> বাসা ভাড়া")
+    sb.appendLine("  │     └── ৳${fmt.format(foodUtilAlloc)} ──> খাদ্য, ইউটিলিটি, ট্রান্সপোর্ট ও লোন")
+    sb.appendLine("  ├── ৳${fmt.format(targetWants)} (৩০% জীবনযাত্রা, ভ্রমণ ও অন্যান্য)")
+    sb.appendLine("  │     ├── ৳${fmt.format(travelLeisureMonthly)} ──> ভ্রমণ ও বিনোদন বাজেট (বছরে ৳${fmt.format(travelLeisureMonthly * 12)})")
+    sb.appendLine("  │     └── ৳${fmt.format(personalWantsAlloc)} ──> ব্যক্তিগত ও পারিবারিক কেনাকাটা")
+    sb.appendLine("  └── ৳${fmt.format(targetSavings)} (২০% সঞ্চয় ও কোটিপতি স্নোবল ফান্ড)")
+    sb.appendLine("        ├── ৳${fmt.format(medicalReserveMonthly)} ──> ইমার্জেন্সি ও চিকিৎসা সুরক্ষা ফান্ড")
+    sb.appendLine("        └── ৳${fmt.format(startingDps)} ──> ১ম ৩-বছর মেয়াদী ডিপিএস (DPS @ ১০.৫%)")
+    sb.appendLine("              │")
+    sb.appendLine("              ▼ [৩ বছর পর মেচুরিটি: ৳${fmt.format(dps1Maturity)}]")
+    sb.appendLine("        ১-বছর মেয়াদী FDR (১১% সুদে)")
+    sb.appendLine("              │")
+    sb.appendLine("              ▼ [মাসিক নিট প্রফিট: ৳${fmt.format(fdr1NetMonthlyYield)} (AIT সোর্স ট্যাক্স বাদ)]")
+    sb.appendLine("        ২য় বর্ধিত ডিপিএস (মাসিক ৳${fmt.format(dps2Monthly)})")
+    sb.appendLine("              │")
+    sb.appendLine("              ▼ [৬ বছর পর মোট পুঞ্জীভূত ফান্ড: ৳${fmt.format(totalFund6Yr)}]")
+    sb.appendLine("        ডাবল মানি স্কিম (৭ বছরে দ্বিগুণ বৃদ্ধি)")
+    sb.appendLine("              │")
+    sb.appendLine("              ▼ [২৫ বছর পর কোটিপতি ফান্ড: ৳${fmt.format(totalFund25Yr)}]")
     sb.appendLine()
 
     // Section 3
-    sb.appendLine("৩. আর্থিক স্বাধীনতার সময়সীমা (Financial Freedom / FIRE Calculator)")
-    sb.appendLine("• আনুমানিক বার্ষিক খরচ: ৳ ${fmt.format(annualExpense)}")
-    sb.appendLine("• আর্থিক স্বাধীনতার লক্ষ্যমাত্রা (Target FIRE Fund = ২৫ x বার্ষিক খরচ): ৳ ${fmt.format(targetFireFund)}")
-    if (netSav > 0) {
-        sb.appendLine("• বর্তমান সঞ্চয় গতি ও বার্ষিক ১০% ব্যাংক রিটার্ন চক্রবৃদ্ধি হিসাবে আপনার আর্থিক স্বাধীনতা অর্জনে সময় লাগবে:")
-        sb.appendLine("  👉 আনুমানিক ${"%.1f".format(yearsToFi)} বছর (${yearsToFi.toInt()} বছর ${( (yearsToFi - yearsToFi.toInt()) * 12 ).toInt()} মাস)")
-    } else {
-        sb.appendLine("• বর্তমানে কোনো নিট সঞ্চয় না থাকায় আর্থিক স্বাধীনতার নির্দিষ্ট সময়সীমা নির্ধারণ করা সম্ভব নয়। দ্রুত খরচ কমিয়ে নিট সঞ্চয় বাড়ানোর পরামর্শ দেওয়া হচ্ছে।")
-    }
+    sb.appendLine("৩. বাস্তবসম্মত ধাপ-ভিত্তিক চক্রবৃদ্ধি ডিপিএস রোডম্যাপ (Step-by-Step Compounding Roadmap)")
+    sb.appendLine("ধাপ ১ (বর্তমানে সামর্থ্য অনুযায়ী শুরু):")
+    sb.appendLine("• আপনার বর্তমান সামর্থ্য অনুযায়ী প্রতি মাসে ৳ ${fmt.format(startingDps)} টাকা ১০.৫% সুদে ৩ বছর (৩৬ মাস) মেয়াদী ডিপিএস-এ রাখুন।")
+    sb.appendLine("• ৩৬ মাসে আপনার মোট জমা আসল: ৳ ${fmt.format(dps1Deposit)} | অর্জিত মুনাফা: ৳ ${fmt.format(dps1Profit)}")
+    sb.appendLine("• ৩ বছর পর মেচুরিটিতে পাবেন: ৳ ${fmt.format(dps1Maturity)}")
+    sb.appendLine()
+    sb.appendLine("ধাপ ২ (এফডিআর মুনাফা দিয়ে ২য় ডিপিএস রি-ইনভেস্টমেন্ট):")
+    sb.appendLine("• মেচুরিটির ৳ ${fmt.format(dps1Maturity)} টাকা ১-বছর মেয়াদী এফডিআর (FDR)-এ ১১% সুদে জমা রাখুন।")
+    sb.appendLine("• ১৫% AIT সোর্স ট্যাক্স বাদ দিয়ে প্রতি মাসে নিট লাভ আসবে ৳ ${fmt.format(fdr1NetMonthlyYield)} টাকা।")
+    sb.appendLine("• মূল আসল FDR-এ অক্ষত রেখে, এই প্রফিট (৳ ${fmt.format(fdr1NetMonthlyYield)}) + আপনার নিয়মিত ডিপিএস বাজেট যোগ করে ২য় ডিপিএস শুরু করুন (মাসিক ৳ ${fmt.format(dps2Monthly)})।")
+    sb.appendLine("• ৬ষ্ঠ বছর শেষে মোট অর্জিত ফান্ড দাঁড়াবে: ৳ ${fmt.format(totalFund6Yr)}")
+    sb.appendLine()
+    sb.appendLine("ধাপ ৩ (ডাবল মানি স্কিমে দ্বিগুণ প্রবৃদ্ধি):")
+    sb.appendLine("• ৬ বছর পর অর্জিত ৳ ${fmt.format(totalFund6Yr)} টাকাকে ব্যাংকের ৭-বছর মেয়াদী ডাবল মানি স্কিমে জমা রাখুন।")
+    sb.appendLine("• ৭ বছর পর (১৩তম বছরে) এটি দ্বিগুণ হয়ে দাঁড়াবে: ৳ ${fmt.format(doubleMoneyScheme13Yr)} (পাশাপাশি চলমান সঞ্চয়সহ মোট ৳ ${fmt.format(totalFund13Yr)})।")
     sb.appendLine()
 
     // Section 4
-    sb.appendLine("৪. ধাপ অনুযায়ী সম্পূর্ণ ব্যাংকিং বিনিয়োগ পরিকল্পনা (Step-by-Step Wealth Plan)")
-    sb.appendLine("ধাপ ১ (জরুরি তহবিল গঠন - Emergency Fund):")
-    val emergencyFund = exp * 6.0
-    sb.appendLine("• আপনার ৬ মাসের আনুমানিক খরচ ৳ ${fmt.format(emergencyFund)}। আপনার হাতে থাকা ৳ ${fmt.format(input.cashInHand)} এর মধ্যে ৳ ${fmt.format(emergencyFund.coerceAtMost(input.cashInHand))} একটি তরল সেভিংস অ্যাকাউন্ট বা ৩ মাস মেয়াদী এফডিআর-এ জরুরি ফান্ড হিসেবে সংরক্ষিত রাখুন।")
+    sb.appendLine("৪. বছরভিত্তিক প্রবৃদ্ধি ও কোটিপতি রোডম্যাপ ছক (Milestone Wealth Table)")
+    sb.appendLine("-----------------------------------------------------------------------------------------")
+    sb.appendLine("| সময়কাল   | জমাকৃত মূলধন (আসল) | অর্জিত মোট মুনাফা  | পুঞ্জীভূত মোট সম্পদ   | প্রধান বিনিয়োগ মাধ্যম |")
+    sb.appendLine("-----------------------------------------------------------------------------------------")
+    sb.appendLine("| ৩ বছর পর  | ৳ ${fmt.format(dps1Deposit)} | ৳ ${fmt.format(dps1Profit)} | ৳ ${fmt.format(dps1Maturity)} | ১ম ডিপিএস মেচুরিটি |")
+    sb.appendLine("| ৬ বছর পর  | ৳ ${fmt.format(dps1Deposit + dps2Deposit)} | ৳ ${fmt.format(totalFund6Yr - (dps1Deposit + dps2Deposit))} | ৳ ${fmt.format(totalFund6Yr)} | এফডিআর + ২য় ডিপিএস |")
+    sb.appendLine("| ১৩ বছর পর | ৳ ${fmt.format(dps1Deposit + dps2Deposit + dps3Deposit)} | ৳ ${fmt.format(totalFund13Yr - (dps1Deposit + dps2Deposit + dps3Deposit))} | ৳ ${fmt.format(totalFund13Yr)} | ১ম ডাবল মানি স্কিম |")
+    sb.appendLine("| ২০ বছর পর | ৳ ${fmt.format(dps1Deposit + dps2Deposit + dps3Deposit + dps4Monthly * 84)} | ৳ ${fmt.format(totalFund20Yr - (dps1Deposit + dps2Deposit + dps3Deposit + dps4Monthly * 84))} | ৳ ${fmt.format(totalFund20Yr)} | ২য় ডাবল মানি স্কিম |")
+    sb.appendLine("| ২৫ বছর পর | ৳ ${fmt.format(totalDeposit25Yr)} | ৳ ${fmt.format(totalProfit25Yr)} | ৳ ${fmt.format(totalFund25Yr)} | 🎯 কোটিপতি ও ফ্রীডম! |")
+    sb.appendLine("-----------------------------------------------------------------------------------------")
     sb.appendLine()
 
-    sb.appendLine("ধাপ ২ (ডিপিএস সঞ্চয় শুরু - DPS Savings Strategy):")
-    val dpsRec = (netSav * 0.80).coerceAtLeast(2000.0)
-    val dpsMaturity3Yr = dpsRec * 36 * 1.16 // approx 10.5% compounded
-    sb.appendLine("• আপনার বর্তমান নিট উদ্বৃত্ত সঞ্চয় ৳ ${fmt.format(netSav)} থেকে প্রতি মাসে ৳ ${fmt.format(dpsRec)} দিয়ে ৩ বছর মেয়াদী ডিপিএস (DPS) চালু করুন।")
-    sb.appendLine("• বাংলাদেশে ৩ বছর মেয়াদী ডিপিএস-এ ব্যাংকগুলোতে বর্তমানে ১০% - ১১% সুদে আকর্ষণীয় রিটার্ন পাওয়া যায়।")
-    sb.appendLine("• ৩ বছর পর মেচুরিটিতে আপনার আনুমানিক প্রাপ্তি দাঁড়াবে ৳ ${fmt.format(dpsMaturity3Yr)}।")
+    // Section 5
+    sb.appendLine("৫. জীবনযাত্রার নিরাপত্তা, চিকিৎসা, ভ্রমণ ও প্যাসিভ ইনকাম (Life Security, Travel & Monthly Passive Income)")
+    sb.appendLine("• 🏥 চিকিৎসা ও ইমার্জেন্সি ফান্ড: প্রতি মাসে ৳ ${fmt.format(medicalReserveMonthly)} জমিয়ে ৩ বছরে ৳ ${fmt.format(medicalReserveMonthly * 36)} টাকার নিরাপত্তা সঞ্চয় গড়ে উঠবে।")
+    sb.appendLine("• ✈️ বার্ষিক ভ্রমণ ও বিনোদন বাজেট: প্রতি মাসে ৳ ${fmt.format(travelLeisureMonthly)} হিসেবে প্রতি বছর ভ্রমণের জন্য ৳ ${fmt.format(travelLeisureMonthly * 12)} টাকা বরাদ্দ থাকবে।")
+    sb.appendLine("• 🏆 আজীবন প্যাসিভ ইনকাম: ২৫ বছর পর ৳ ${fmt.format(totalFund25Yr)} টাকা এফডিআর-এ জমা রাখলে প্রতি মাসে নিট প্যাসিভ আয় আসবে ৳ ${fmt.format(monthlyPassiveIncome25Yr)} টাকা! কাজ না করেও আপনার পরিবার আজীবন আর্থিক নিরাপত্তায় থাকবে।")
     sb.appendLine()
 
-    sb.appendLine("ধাপ ৩ (এফডিআর ও রি-ইনভেস্টমেন্ট কৌশল - FDR & Compounding):")
-    sb.appendLine("• ডিপিএস মেচুরিটির টাকা (৳ ${fmt.format(dpsMaturity3Yr)}) সাথে সাথে ১ বছর মেয়াদী এফডিআর (FDR)-এ বিনিয়োগ করুন।")
-    sb.appendLine("• বাংলাদেশে ১ বছর মেয়াদী এফডিআর-এ সুদের হার ১১% - ১২% (যার ওপর ১০%-১৫% সোর্স ট্যাক্স বা AIT কাটা হয়)। ৩ মাস মেয়াদী এফডিআর-এ সুদের হার সাধারণত ৮% হয়ে থাকে।")
-    sb.appendLine("• এফডিআর মুনাফার ২ টি পছন্দনীয় পদ্ধতি রয়েছে:")
-    sb.appendLine("  ১) মাসিক প্রফিট স্কিম (Monthly Benefit): প্রতি মাসের প্রফিট সেভিংস অ্যাকাউন্টে যুক্ত হবে এবং সেটি দিয়ে আবার নতুন ডিপিএস খোলা যাবে।")
-    sb.appendLine("  ২) বার্ষিক চক্রবৃদ্ধি (Annual Reinvestment): মেচুরিটির মুনাফা মূলধনের সাথে যুক্ত করে পুনঃবিনিয়োগ করলে দ্রুত চক্রবৃদ্ধি বৃদ্ধি ঘটে।")
-    sb.appendLine()
-
-    sb.appendLine("ধাপ ৪ (ডাবল মানি স্কিম - Double Money Scheme):")
-    sb.appendLine("• ব্যাংকগুলোর ডাবল মানি স্কিমে এফডিআর মূলধন রাখলে আনুমানিক ৬ থেকে ৭ বছরে আপনার জমাকৃত টাকা দ্বিগুণ হয়ে যাবে।")
-    sb.appendLine()
-
-    sb.appendLine("ধাপ ৫ (ঋণ ব্যবস্থাপনা পরামর্শ - Loan Advisory):")
-    if (input.hasLoan) {
-        sb.appendLine("• ব্যাংক ঋণের সুদের হার সাধারণত ১০% থেকে ১৪% পর্যন্ত হয়ে থাকে। আপনার ঋণের বর্তমান বকেয়া ৳ ${fmt.format(input.loanOutstanding)} এবং মাসিক কিস্তি ৳ ${fmt.format(input.loanEmi)}।")
-        sb.appendLine("• নতুন কোনো বিনিয়োগের পূর্বে অতিরিক্ত সুদের ঋণ দ্রুত পরিশোধ করা বুদ্ধিমানের কাজ হবে।")
-        sb.appendLine("• উল্লেখ্য, ২৫ বছর মেয়াদী দীর্ঘমেয়াদী হোম লোন (Home Loan)-এ সুদের হার প্রায় ৯% এর কাছাকাছি সুবিধাজনক পাওয়া যায়।")
-    } else {
-        sb.appendLine("• আপনার বর্তমানে কোনো ঋণ নেই। এটি আপনার অত্যন্ত শক্তিশালী ব্যাংকিং সুবিধা। কোনো উচ্চ সুদের লোন (১০%-১৪%) না নিয়ে সম্পূর্ণ উদ্বৃত্ত অর্থ ডিপিএস ও এফডিআর চক্রবৃদ্ধিতে ব্যবহারের পরামর্শ দেওয়া হচ্ছে।")
-    }
+    // Section 6: Comparison Table
+    sb.appendLine("৬. বর্তমান সাধারণ পদ্ধতি বনাম AI এডভাইজর রোডম্যাপ তুলনা ছক (Comparison Table)")
+    sb.appendLine("-------------------------------------------------------------------------------------------------------")
+    sb.appendLine("| আর্থিক ব্যবস্থাপনা পদ্ধতি               | ২৫ বছরে জমা আসল   | ২৫ বছর পর মোট সম্পদ | ২৫ বছর পর মাসিক প্যাসিভ আয় |")
+    sb.appendLine("-------------------------------------------------------------------------------------------------------")
+    sb.appendLine("| ১. সাধারণ অনিয়মিত সঞ্চয় (Traditional)  | ৳ ${fmt.format(tradDeposit25Yr)}   | ৳ ${fmt.format(tradTotal25Yr)}     | ৳ ${fmt.format(tradMonthlyReturn25Yr)} /মাস |")
+    sb.appendLine("| ২. AI এডভাইজর চক্রবৃদ্ধি রোডম্যাপ (AI Roadmap) | ৳ ${fmt.format(totalDeposit25Yr)}   | ৳ ${fmt.format(totalFund25Yr)} (কোটি!) | ৳ ${fmt.format(monthlyPassiveIncome25Yr)} /মাস (আজীবন!) |")
+    sb.appendLine("-------------------------------------------------------------------------------------------------------")
+    val timesMore = if (tradTotal25Yr > 0) totalFund25Yr / tradTotal25Yr else 10.0
+    sb.appendLine("🔥 গাণিতিক পার্থক্য: AI এডভাইজর রোডম্যাপ অনুসরণ করলে সঠিক চক্রবৃদ্ধি ও এফডিআর রি-ইনভেস্টমেন্টের মাধ্যমে আপনার সম্পদ সাধারণ সঞ্চয়ের চেয়ে প্রায় ${"%.1f".format(timesMore)} গুণ বৃদ্ধি পাবে!")
 
     return sb.toString()
 }
